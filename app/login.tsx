@@ -12,7 +12,8 @@ export default function LoginScreen() {
             <ImageBackground
                 source={require('../assets/images/login-background.png')}
                 style={styles.topContainer}
-                imageStyle={{ opacity: 0.6 }}>
+                resizeMode="cover"
+                imageStyle={styles.backgroundImageStyle}>
             </ImageBackground>
 
             <Image 
@@ -73,9 +74,14 @@ const styles = StyleSheet.create({
   },
   topContainer: {
     height: '35%',
+    width: '100%',
     backgroundColor: '#333',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  backgroundImageStyle: {
+    width: '100%',
+    height: '100%',
   },
   vinylImage: {
     width: 130,
