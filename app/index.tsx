@@ -1,7 +1,8 @@
-import { Link } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function WelcomeScreen() {
+  const router = useRouter();
   return (
     <View style={styles.container}>
       <View style={styles.topContainer}>
@@ -17,11 +18,12 @@ export default function WelcomeScreen() {
         </Text>
 
         {/* Botão de Iniciar */}
-        <Link href="/login" asChild>
-          <TouchableOpacity style={styles.button}>
-            <Text style={styles.buttonText}>Iniciar</Text>
-          </TouchableOpacity>
-        </Link>
+        <TouchableOpacity 
+          style={styles.button}
+          onPress={() => router.push('/login')}
+        >
+          <Text style={styles.buttonText}>Iniciar</Text>
+        </TouchableOpacity>
       </View>
 
       <Image
@@ -45,8 +47,8 @@ const styles = StyleSheet.create({
   albumImage: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover', // << VÍRGULA ADICIONADA
-  }, // << CERTIFIQUE-SE DE FECHAR O OBJETO AQUI
+    resizeMode: 'cover',
+  },
   bottomContainer: {
     flex: 1,
     backgroundColor: '#D3D3D3',
