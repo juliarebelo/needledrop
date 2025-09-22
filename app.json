@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "needledrop",
-    "slug": "needledrop",
+    "name": "NeedleDrop",
+    "slug": "NeedleDrop",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "needledrop",
+    "icon": "./assets/images/iconeapp.png",
+    "scheme": "NeedleDrop",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
