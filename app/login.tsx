@@ -1,10 +1,36 @@
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React from 'react';
-import { Image, ImageBackground, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { Alert, Image, ImageBackground, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function LoginScreen() {
     const router = useRouter();
+
+    const [email, setEmail] = useState('');
+    const [senha, setSenha] = useState('');
+    const [erroEmail, setErroEmail] = useState('');
+    const [erroSenha, setErroSenha] = useState('');
+    const handleLogin = () => {
+    setErroEmail('');
+    setErroSenha('');
+    let formValido = true;
+        if (!email) {
+            setErroEmail('O email é obrigatório.');
+            formValido = false;
+        } else if (!/\S+@\S+\.\S+/.test(email)) {
+            setErroEmail('O email é inválido.');
+            formValido = false;
+        }
+        if (!senha) {
+            setErroSenha('A senha é obrigatória.');
+            formValido = false;
+        }
+        if (formValido) {
+            Alert.alert('Sucesso', 'Login realizado com sucesso!');
+            router.push('/homepage');
+        }
+    };
+
     return (
         <View style={styles.container}>
             <StatusBar barStyle="light-content" />
@@ -25,36 +51,49 @@ export default function LoginScreen() {
                 <Text style={styles.title}>Login</Text>
                 <Text style={styles.subtitle}>Entre para prosseguir</Text>
 
-                {/*entrada do usuário*/}
+                {/* Entrada do email */}
                 <View style={styles.inputContainer}>
-                    <Feather name="user" size={20} color="#888" style={styles.inputIcon} />
+                    <Feather name="mail" size={20} color="#888" style={styles.inputIcon} />
                     <TextInput
-                        placeholder="Usuário"
+                        placeholder="Email"
                         style={styles.input}
                         placeholderTextColor="#888"
+                        value={email}
+                        onChangeText={setEmail}
+                        keyboardType="email-address" 
+                        autoCapitalize="none"
                     />
                 </View>
 
-                {/*entrada da senha*/}
+                {erroEmail ? <Text style={styles.errorText}>{erroEmail}</Text> : null}
+
+                {/* Entrada da senha */}
                 <View style={styles.inputContainer}>
                     <Feather name="lock" size={20} color="#888" style={styles.inputIcon} />
                     <TextInput
                         placeholder="Senha"
                         style={styles.input}
                         placeholderTextColor="#888"
-                        secureTextEntry // para esconder a senha
+                        secureTextEntry
+                        value={senha}
+                        onChangeText={setSenha}
                     />
                 </View>
+
+                 {erroSenha ? <Text style={styles.errorText}>{erroSenha}</Text> : null}
 
                 <TouchableOpacity>
                     <Text style={styles.forgotPassword}>Esqueceu a senha?</Text>
                 </TouchableOpacity>
 
                 {/* Botão de Login */}
-                <TouchableOpacity style={styles.loginButton}>
-                    <Text style={styles.loginButtonText}>Login</Text>
-                </TouchableOpacity>
-
+                <TouchableOpacity 
+    style={styles.loginButton} 
+    onPress={handleLogin} 
+>
+    <Text style={styles.loginButtonText}>Login</Text>
+</TouchableOpacity>
+                
                 {/* Link para a tela de registro */}
                 <View style={styles.signupContainer}>
                     <Text style={styles.signupText}>Não tem uma conta?</Text>
@@ -127,6 +166,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
   },
+  errorText: {
+        color: '#8b0000',
+        fontSize: 12,
+        fontWeight: 'bold',
+        alignSelf: 'flex-start',
+        width: '100%',
+        marginTop: -10, 
+        marginBottom: 10,
+        paddingLeft: 5, 
+    },
   forgotPassword: {
     alignSelf: 'flex-end',
     color: '#555',
