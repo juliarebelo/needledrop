@@ -5,24 +5,16 @@ import { useRouter } from 'expo-router';
 import { Image, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View, ScrollView } from 'react-native';
 
 export default function Homepage() {
-    const router = useRouter(); // Inicializa o useRouter aqui
+    const router = useRouter(); 
 
-    // Dados simulados para as playlists
+    
     const playlists = [
-        { name: 'Dirigindo', image: require('../assets/images/playlist1.jpg') }, // Substitua pelo seu caminho de imagem real
-        { name: '2000\'s', image: require('../assets/images/playlist2.jpg') },    // Substitua pelo seu caminho de imagem real
-        { name: 'Relaxar', image: require('../assets/images/playlist3.jpg') },   // Substitua pelo seu caminho de imagem real
+        { name: 'Dirigindo', image: require('../assets/images/playlist1.jpg') }, 
+        { name: '2000\'s', image: require('../assets/images/playlist2.jpg') },    
+        { name: 'Relaxar', image: require('../assets/images/playlist3.jpg') },  
     ];
 
-    // O código abaixo usa imagens simuladas que você precisará adicionar à sua pasta assets/images
-    // Para replicar a imagem fielmente, você precisará adicionar as imagens:
-    // - playlist1.jpg (pôr do sol no carro)
-    // - playlist2.jpg (pilha de CDs)
-    // - playlist3.jpg (botão ON/OFF "music: ON world: OFF")
-    // - avatar.jpg (foto de perfil)
-    
-    // Se você não tiver as imagens, substitua o 'require' por qualquer imagem de placeholder que você tenha,
-    // ou comente a linha 'image' e use um View com background para testar a estrutura.
+
 
     return (
         <View style={styles.container}>
@@ -39,10 +31,9 @@ export default function Homepage() {
                         <Text style={styles.subtitle}>Avalie uma nova música...</Text>
                     </View>
                     <Image
-                        source={require('../assets/images/avatar.jpg')} // Substitua pelo seu caminho de imagem real
+                        source={require('../assets/images/avatar.jpg')}
                         style={styles.avatar}
                     />
-                     {/* Círculo de notificação, se houver */}
                     <View style={styles.notificationDot} />
                 </View>
 
@@ -71,15 +62,13 @@ export default function Homepage() {
                             <Text style={styles.playlistName}>{playlist.name}</Text>
                         </TouchableOpacity>
                     ))}
-                    {/* Placeholder para alinhamento se necessário, ou remova se preferir um ScrollView horizontal */}
                     <View style={styles.playlistCardPlaceholder} /> 
                 </View>
 
-                {/* Conteúdo adicional da Home pode vir aqui... */}
+                
                 
             </ScrollView>
 
-            {/* Barra de Navegação Inferior (Recriação simples) */}
             <View style={styles.bottomNav}>
                 <TouchableOpacity style={styles.navItem}>
                     <Feather name="home" size={24} color="#fff" />
@@ -102,11 +91,11 @@ export default function Homepage() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#400000', // Cor de fundo principal mais escura
+        backgroundColor: '#400000', 
     },
     header: {
         paddingHorizontal: 20,
-        paddingTop: 50, // Ajuste para a barra de status
+        paddingTop: 50, 
         paddingBottom: 20,
     },
     pageTitle: {
@@ -182,7 +171,8 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
     },
     playlistCard: {
-        width: '30%', // Ajuste para caber 3 por linha com algum espaçamento
+        width: '30%', 
+
         marginBottom: 20,
         alignItems: 'center',
     },
@@ -191,7 +181,7 @@ const styles = StyleSheet.create({
     },
     playlistImage: {
         width: '100%',
-        height: 100, // Altura fixa
+        height: 100, 
         borderRadius: 10,
         marginBottom: 5,
     },
@@ -205,7 +195,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-around',
         paddingVertical: 10,
         borderTopWidth: 1,
-        borderTopColor: '#550000', // Linha sutil para separar
+        borderTopColor: '#550000', 
     },
     navItem: {
         padding: 10,
