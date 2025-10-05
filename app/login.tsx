@@ -4,16 +4,21 @@ import React, { useState } from 'react';
 import { Alert, Image, ImageBackground, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function LoginScreen() {
+    // Hook do Expo Router para navegação
     const router = useRouter();
 
     const [email, setEmail] = useState('');
     const [senha, setSenha] = useState('');
     const [erroEmail, setErroEmail] = useState('');
     const [erroSenha, setErroSenha] = useState('');
+    
+    // Função para lidar com a tentativa de Login
     const handleLogin = () => {
-    setErroEmail('');
-    setErroSenha('');
-    let formValido = true;
+        setErroEmail('');
+        setErroSenha('');
+        let formValido = true;
+
+        // Validação de email
         if (!email) {
             setErroEmail('O email é obrigatório.');
             formValido = false;
@@ -21,10 +26,13 @@ export default function LoginScreen() {
             setErroEmail('O email é inválido.');
             formValido = false;
         }
+
+        // Validação de senha
         if (!senha) {
             setErroSenha('A senha é obrigatória.');
             formValido = false;
         }
+
         if (formValido) {
             Alert.alert('Sucesso', 'Login realizado com sucesso!');
             router.push('/homepage');
@@ -35,6 +43,7 @@ export default function LoginScreen() {
         <View style={styles.container}>
             <StatusBar barStyle="light-content" />
             
+            {/* Seção superior com imagem de fundo */}
             <ImageBackground
                 source={require('../assets/images/login-background.png')}
                 style={styles.topContainer}
@@ -42,11 +51,13 @@ export default function LoginScreen() {
                 imageStyle={styles.backgroundImageStyle}>
             </ImageBackground>
 
+            {/* Imagem de Vinil */}
             <Image 
                 source={require('../assets/images/vinil.png')}
                 style={styles.vinylImage}
             />
 
+            {/* Seção inferior com o formulário */}
             <View style={styles.bottomContainer}>
                 <Text style={styles.title}>Login</Text>
                 <Text style={styles.subtitle}>Entre para prosseguir</Text>
@@ -82,17 +93,18 @@ export default function LoginScreen() {
 
                  {erroSenha ? <Text style={styles.errorText}>{erroSenha}</Text> : null}
 
-                <TouchableOpacity>
+                {/* Link "Esqueceu a senha?" - Navega para a tela /senhas */}
+                <TouchableOpacity onPress={() => router.push('/senhas')}>
                     <Text style={styles.forgotPassword}>Esqueceu a senha?</Text>
                 </TouchableOpacity>
 
                 {/* Botão de Login */}
                 <TouchableOpacity 
-    style={styles.loginButton} 
-    onPress={handleLogin} 
->
-    <Text style={styles.loginButtonText}>Login</Text>
-</TouchableOpacity>
+                    style={styles.loginButton} 
+                    onPress={handleLogin} 
+                >
+                    <Text style={styles.loginButtonText}>Login</Text>
+                </TouchableOpacity>
                 
                 {/* Link para a tela de registro */}
                 <View style={styles.signupContainer}>
