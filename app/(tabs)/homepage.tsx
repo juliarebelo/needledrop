@@ -41,7 +41,7 @@ const Header = ({ usuario }: { usuario: Usuario | null }) => {
         <Feather name="menu" size={32} color="#FFFFFF" />
       </TouchableOpacity>
       <Text style={styles.greeting}>Olá, {usuario?.nome || 'Usuário'}!</Text>
-      <TouchableOpacity onPress={() => router.push('/perfil')}>
+      <TouchableOpacity onPress={() => router.push('/(tabs)/perfil')}>
         <Image
           source={{ uri: usuario?.fotoUrl || 'https://via.placeholder.com/150' }}
           style={styles.avatar}
@@ -51,11 +51,20 @@ const Header = ({ usuario }: { usuario: Usuario | null }) => {
   );
 };
 
-const PlaylistCard = ({ item, onPress }: { item: Playlist; onPress?: () => void }) => (
-  <TouchableOpacity style={styles.playlistCard} onPress={onPress}>
-    <Image source={{ uri: item.capaUrl || 'https://via.placeholder.com/150' }} style={styles.playlistImage} />
-    <Text style={styles.playlistTitle}>{item.titulo}</Text>
-  </TouchableOpacity>
+const PlaylistCard = ({ item, onDelete, onPress }: { 
+  item: Playlist; 
+  onDelete: (id: string) => void;
+  onPress: (id: string) => void;
+}) => (
+  <View style={styles.playlistCardContainer}>
+    <TouchableOpacity style={styles.playlistCard} onPress={() => onPress(item.id)}>
+      <Image source={{ uri: item.capaUrl || 'https://via.placeholder.com/150' }} style={styles.playlistImage} />
+      <Text style={styles.playlistTitle}>{item.titulo}</Text>
+    </TouchableOpacity>
+    <TouchableOpacity onPress={() => onDelete(item.id)} style={styles.deleteButton}>
+      <Feather name="x" size={20} color="#FF0000" />
+    </TouchableOpacity>
+  </View>
 );
 
 const AlbumListItem = ({ item, isFavorito, onToggleFavorito }: { item: Album; isFavorito: boolean; onToggleFavorito: (id: string) => void }) => (
@@ -90,15 +99,34 @@ const CustomBottomNav = () => {
 };
 
 export default function Homepage() {
+  const router = useRouter(); // ✅ ADICIONADO
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [recomendados, setRecomendados] = useState<Album[]>([]);
   const [loading, setLoading] = useState(true);
   
-
   const [favoritos, setFavoritos] = useState<string[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [novaPlaylistTitulo, setNovaPlaylistTitulo] = useState('');
+
+  // FUNÇÃO EXCLUIR PLAYLIST
+  const excluirPlaylist = (playlistId: string) => {
+    Alert.alert(
+      "Excluir Playlist",
+      "Tem certeza que deseja excluir esta playlist?",
+      [
+        { text: "Cancelar", style: "cancel" },
+        { 
+          text: "Excluir", 
+          style: "destructive",
+          onPress: () => {
+            setPlaylists(playlists.filter(playlist => playlist.id !== playlistId));
+            Alert.alert('Sucesso', 'Playlist excluída!');
+          }
+        }
+      ]
+    );
+  };
 
   const criarPlaylist = () => {
     if (novaPlaylistTitulo.trim() === '') {
@@ -216,7 +244,13 @@ export default function Homepage() {
           <Text style={styles.sectionTitle}>Minhas Playlists</Text>
           <FlatList
             data={playlists}
-            renderItem={({ item }) => <PlaylistCard item={item} />}
+            renderItem={({ item }) => (
+              <PlaylistCard 
+                item={item} 
+                onDelete={excluirPlaylist}
+                onPress={(id) => router.push({ pathname: '/(tabs)/Playlist/[id]', params: { id } })}
+              />
+            )}
             keyExtractor={item => item.id}
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -281,9 +315,14 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginBottom: 20,
   },
-  playlistCard: {
+
+  playlistCardContainer: {
+    position: 'relative',
     width: 140,
     marginRight: 15,
+  },
+  playlistCard: {
+    width: 140,
   },
   playlistImage: {
     width: 140,
@@ -294,6 +333,19 @@ const styles = StyleSheet.create({
     color: '#ccc',
     marginTop: 8,
     fontSize: 14,
+    textAlign: 'center',
+  },
+
+  deleteButton: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   addCard: {
     backgroundColor: '#4a1e1e',
@@ -349,7 +401,6 @@ const styles = StyleSheet.create({
     height: 28,
     resizeMode: 'contain',
   },
-
   modalContainer: {
     flex: 1,
     justifyContent: 'center',
