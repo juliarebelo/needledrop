@@ -1,36 +1,48 @@
 import { Feather } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
-import React from 'react';
 
 export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerShown: false,
-        tabBarStyle: { 
-          display: 'none'
+        headerShown: false, // Isso remove o header das telas de tab
+        tabBarStyle: {
+          backgroundColor: '#fff',
+          borderTopColor: '#e5e5e5',
+          borderTopWidth: 0.5,
+          height: 60,
+          paddingBottom: 8,
+          paddingTop: 8,
         },
+        tabBarActiveTintColor: '#8b0000',
+        tabBarInactiveTintColor: '#999',
       }}
     >
       <Tabs.Screen
-        name="homepage"
+        name="index"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <Feather name="home" size={28} color={color} />,
+          title: 'Início',
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="home" size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="busca"
         options={{
           title: 'Busca',
-          tabBarIcon: ({ color }) => <Feather name="search" size={28} color={color} />,
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="search" size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="perfil"
         options={{
           title: 'Perfil',
-          tabBarIcon: ({ color }) => <Feather name="user" size={28} color={color} />,
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="user" size={size} color={color} />
+          ),
         }}
       />
     </Tabs>

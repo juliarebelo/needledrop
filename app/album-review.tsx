@@ -1,7 +1,8 @@
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Image,
   ScrollView,
@@ -12,8 +13,9 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { supabase } from '../services/supabase';
 
-// Componente de navegação inferior (ajuste conforme seu projeto)
+// Componente de navegação inferior
 const CustomBottomNav = () => {
   const router = useRouter(); 
   return (
@@ -38,55 +40,153 @@ export default function AlbumReview() {
   const [rating, setRating] = useState(0);
   const [review, setReview] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [existingReview, setExistingReview] = useState<any>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [user, setUser] = useState<any>(null);
 
-  // Decodifica os parâmetros com valores padrão
+  // Decodifica os parâmetros
   const albumName = params.albumName ? decodeURIComponent(params.albumName as string) : 'Álbum Desconhecido';
   const artist = params.artist ? decodeURIComponent(params.artist as string) : 'Artista Desconhecido';
-  const year = params.year as string || '2020';
-  const trackCount = params.trackCount as string || '12';
+  const year = parseInt(params.year as string) || 2020;
+  const trackCount = parseInt(params.trackCount as string) || 12;
   const coverUrl = params.coverUrl ? decodeURIComponent(params.coverUrl as string) : '';
+
+  // Verifica o usuário logado e resenhas existentes
+  useEffect(() => {
+    checkUserAndReview();
+  }, [albumName, artist]);
+
+  const checkUserAndReview = async () => {
+    try {
+      // Pega a sessão atual
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user || null);
+
+      if (session?.user) {
+        // Busca resenha existente
+        const { data, error } = await supabase
+          .from('resenhas')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .eq('album_name', albumName)
+          .eq('artist', artist)
+          .single();
+
+        if (error && error.code !== 'PGRST116') {
+          console.error('Erro ao buscar resenha:', error);
+        }
+
+        if (data) {
+          setExistingReview(data);
+          setRating(data.rating);
+          setReview(data.review_text);
+          setIsEditing(true);
+        } else {
+          setIsEditing(false);
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao verificar usuário e resenha:', error);
+      setIsEditing(false);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleRatingPress = (selectedRating: number) => {
     setRating(selectedRating);
   };
 
   const handleSubmitReview = async () => {
+    if (!user) {
+      // Redireciona direto para login sem pop-up
+      router.push('/login');
+      return;
+    }
+
     if (!rating || !review.trim()) {
-      Alert.alert('Atenção', 'Por favor, dê uma nota e escreva uma resenha antes de publicar.');
+      // Apenas não faz nada se não tiver nota ou review
       return;
     }
 
     setIsSubmitting(true);
     
     try {
-      // Aqui você pode adicionar a lógica para salvar no Supabase
-      console.log('Resenha submetida:', {
-        album: albumName,
-        artist,
-        rating,
-        review,
-        coverUrl
-      });
+      if (isEditing && existingReview?.id) {
+        // Atualizar resenha existente
+        const { error } = await supabase
+          .from('resenhas')
+          .update({
+            rating,
+            review_text: review,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingReview.id);
 
-      // Simulando uma requisição
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      Alert.alert(
-        'Sucesso!',
-        'Sua resenha foi publicada com sucesso!',
-        [
-          {
-            text: 'OK',
-            onPress: () => router.back()
-          }
-        ]
-      );
-    } catch (error) {
-      console.error('Erro ao publicar resenha:', error);
-      Alert.alert('Erro', 'Não foi possível publicar sua resenha. Tente novamente.');
+        if (error) throw error;
+        
+        // Volta para tela anterior sem pop-up de sucesso
+        router.back();
+      } else {
+        // Criar nova resenha
+        const { error } = await supabase
+          .from('resenhas')
+          .insert({
+            user_id: user.id,
+            album_name: albumName,
+            artist: artist,
+            year: year,
+            track_count: trackCount,
+            cover_url: coverUrl,
+            rating: rating,
+            review_text: review
+          });
+
+        if (error) throw error;
+        
+        // Volta para tela anterior sem pop-up de sucesso
+        router.back();
+      }
+    } catch (error: any) {
+      console.error('Erro ao salvar resenha:', error);
+      // Não mostra pop-up de erro
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleDeleteReview = async () => {
+    if (!existingReview?.id || !user) return;
+
+    // MANTÉM APENAS ESTE POP-UP (confirmação de exclusão)
+    Alert.alert(
+      'Confirmar exclusão',
+      'Tem certeza que deseja excluir esta resenha?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error } = await supabase
+                .from('resenhas')
+                .delete()
+                .eq('id', existingReview.id);
+
+              if (error) throw error;
+
+              // Volta para tela anterior sem pop-up de sucesso
+              router.back();
+            } catch (error) {
+              console.error('Erro ao excluir resenha:', error);
+              // Não mostra pop-up de erro
+            }
+          }
+        }
+      ]
+    );
   };
 
   const renderStars = () => {
@@ -105,6 +205,15 @@ export default function AlbumReview() {
     ));
   };
 
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#fff" />
+        <Text style={styles.loadingText}>Carregando...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
@@ -115,7 +224,9 @@ export default function AlbumReview() {
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Feather name="arrow-left" size={24} color="#fff" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Escreva uma resenha</Text>
+          <Text style={styles.headerTitle}>
+            {isEditing ? 'Editar Resenha' : 'Escreva uma Resenha'}
+          </Text>
           <View style={styles.placeholder} />
         </View>
 
@@ -124,7 +235,6 @@ export default function AlbumReview() {
           <Image
             source={{ uri: coverUrl || 'https://via.placeholder.com/150' }}
             style={styles.albumCover}
-            defaultSource={{ uri: 'https://via.placeholder.com/150' }}
           />
           <View style={styles.albumDetails}>
             <Text style={styles.albumName}>{albumName}</Text>
@@ -156,19 +266,35 @@ export default function AlbumReview() {
           />
         </View>
 
-        {/* Submit Button */}
-        <TouchableOpacity
-          style={[
-            styles.submitButton,
-            (!rating || !review.trim() || isSubmitting) && styles.submitButtonDisabled
-          ]}
-          onPress={handleSubmitReview}
-          disabled={!rating || !review.trim() || isSubmitting}
-        >
-          <Text style={styles.submitButtonText}>
-            {isSubmitting ? 'Publicando...' : 'Publicar'}
-          </Text>
-        </TouchableOpacity>
+        {/* Botões de Ação */}
+        <View style={styles.actionsContainer}>
+          <TouchableOpacity
+            style={[
+              styles.submitButton,
+              (!rating || !review.trim() || isSubmitting) && styles.submitButtonDisabled
+            ]}
+            onPress={handleSubmitReview}
+            disabled={!rating || !review.trim() || isSubmitting}
+          >
+            <Text style={styles.submitButtonText}>
+              {isSubmitting 
+                ? 'Salvando...' 
+                : isEditing 
+                  ? 'Atualizar Resenha' 
+                  : 'Publicar Resenha'
+              }
+            </Text>
+          </TouchableOpacity>
+
+          {isEditing && (
+            <TouchableOpacity
+              style={styles.deleteButton}
+              onPress={handleDeleteReview}
+            >
+              <Text style={styles.deleteButtonText}>Excluir Resenha</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </ScrollView>
 
       {/* Bottom Navigation */}
@@ -181,6 +307,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#300505',
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#300505',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#fff',
+    marginTop: 10,
   },
   scrollView: {
     flex: 1,
@@ -258,12 +394,15 @@ const styles = StyleSheet.create({
     minHeight: 150,
     textAlignVertical: 'top',
   },
+  actionsContainer: {
+    marginBottom: 20,
+  },
   submitButton: {
     backgroundColor: '#e74c3c',
     borderRadius: 8,
     padding: 15,
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 10,
   },
   submitButtonDisabled: {
     backgroundColor: '#666',
@@ -273,6 +412,18 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  deleteButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#e74c3c',
+    borderRadius: 8,
+    padding: 15,
+    alignItems: 'center',
+  },
+  deleteButtonText: {
+    color: '#e74c3c',
+    fontSize: 16,
   },
 });
 

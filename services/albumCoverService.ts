@@ -4,7 +4,6 @@ const LASTFM_API_KEY = '8b6ae954b532dde9a4567228240e5a68';
 
 export class AlbumCoverService {
   
-  // Busca capa de UM álbum
   async getAlbumCover(artist: string, album: string): Promise<string | null> {
     try {
       const url = `https://ws.audioscrobbler.com/2.0/?method=album.getinfo&api_key=${LASTFM_API_KEY}&artist=${encodeURIComponent(artist)}&album=${encodeURIComponent(album)}&format=json`;
@@ -25,7 +24,6 @@ export class AlbumCoverService {
         return null;
       }
       
-      // Pega a imagem LARGE (índice 2) - 300x300
       const coverUrl = data.album?.image[2]?.['#text'];
       
       if (coverUrl) {
@@ -42,7 +40,6 @@ export class AlbumCoverService {
     }
   }
   
-  // Busca capa e salva no Supabase
   async findAndSaveCover(musicaId: string, artist: string, albumTitle: string): Promise<boolean> {
     try {
       console.log(`💾 Tentando salvar capa para: ${artist} - ${albumTitle}`);
@@ -71,7 +68,6 @@ export class AlbumCoverService {
     }
   }
 
-  // Busca TODOS os álbuns/singles sem capa e tenta preencher
   async fillAllMissingCovers(): Promise<void> {
     try {
       console.log('🔄 Buscando músicas sem capa no Supabase...');
@@ -80,7 +76,7 @@ export class AlbumCoverService {
         .from('musicas')
         .select('id, title, artist, album, url_capa')
         .is('url_capa', null)
-        .limit(5000);
+        .limit(20000);
 
       if (error) {
         console.log('❌ Erro ao buscar músicas:', error);
@@ -99,7 +95,6 @@ export class AlbumCoverService {
       for (const musica of musicas) {
         console.log(`\n🎵 Processando: ${musica.artist} - ${musica.album || musica.title}`);
         
-        // Usa o nome do álbum se existir, senão usa o título da música
         const albumName = musica.album || musica.title;
         const saved = await this.findAndSaveCover(musica.id, musica.artist, albumName);
         
