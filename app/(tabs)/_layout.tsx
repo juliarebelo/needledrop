@@ -8,7 +8,7 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: { 
-          display: 'none' // ⬅️ Isso esconde a tab bar nativa
+          display: 'none'
         },
       }}
     >
