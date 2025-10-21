@@ -2,18 +2,18 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, Image, ImageBackground, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { supabase } from '../services/supabase';
 
 export default function LoginScreen() {
-    // Hook do Expo Router para navegação
     const router = useRouter();
 
     const [email, setEmail] = useState('');
     const [senha, setSenha] = useState('');
     const [erroEmail, setErroEmail] = useState('');
     const [erroSenha, setErroSenha] = useState('');
+    const [loading, setLoading] = useState(false);
     
-    // Função para lidar com a tentativa de Login
-    const handleLogin = () => {
+    const handleLogin = async () => {
         setErroEmail('');
         setErroSenha('');
         let formValido = true;
@@ -33,9 +33,31 @@ export default function LoginScreen() {
             formValido = false;
         }
 
-        if (formValido) {
-            Alert.alert('Sucesso', 'Login realizado com sucesso!');
-            router.push('/homepage');
+        if (!formValido) return;
+
+        setLoading(true);
+
+        try {
+            // Login no Supabase
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email: email,
+                password: senha,
+            });
+
+            if (error) {
+                Alert.alert('Erro no login', error.message);
+                return;
+            }
+
+            if (data.user) {
+                Alert.alert('Sucesso', 'Login realizado com sucesso!');
+                router.push('/homepage');
+            }
+
+        } catch (error) {
+            Alert.alert('Erro', 'Ocorreu um erro inesperado. Tente novamente.');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -100,10 +122,13 @@ export default function LoginScreen() {
 
                 {/* Botão de Login */}
                 <TouchableOpacity 
-                    style={styles.loginButton} 
-                    onPress={handleLogin} 
+                    style={[styles.loginButton, loading && styles.disabledButton]} 
+                    onPress={handleLogin}
+                    disabled={loading}
                 >
-                    <Text style={styles.loginButtonText}>Login</Text>
+                    <Text style={styles.loginButtonText}>
+                        {loading ? 'Entrando...' : 'Login'}
+                    </Text>
                 </TouchableOpacity>
                 
                 {/* Link para a tela de registro */}
@@ -179,15 +204,15 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   errorText: {
-        color: '#8b0000',
-        fontSize: 12,
-        fontWeight: 'bold',
-        alignSelf: 'flex-start',
-        width: '100%',
-        marginTop: -10, 
-        marginBottom: 10,
-        paddingLeft: 5, 
-    },
+    color: '#8b0000',
+    fontSize: 12,
+    fontWeight: 'bold',
+    alignSelf: 'flex-start',
+    width: '100%',
+    marginTop: -10, 
+    marginBottom: 10,
+    paddingLeft: 5, 
+  },
   forgotPassword: {
     alignSelf: 'flex-end',
     color: '#555',
@@ -217,5 +242,8 @@ const styles = StyleSheet.create({
   signupLink: {
     fontWeight: 'bold',
     color: '#8b0000',
+  },
+  disabledButton: {
+    opacity: 0.7,
   },
 });
