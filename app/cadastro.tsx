@@ -2,6 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, Image, ImageBackground, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { supabase } from '../services/supabase';
 
 export default function CadastroScreen() {
     const router = useRouter();
@@ -12,8 +13,9 @@ export default function CadastroScreen() {
     const [erroEmail, setErroEmail] = useState('');
     const [erroSenha, setErroSenha] = useState('');
     const [erroConfirmarSenha, setErroConfirmarSenha] = useState('');
+    const [loading, setLoading] = useState(false);
 
-    const handleCadastro = () => {
+    const handleCadastro = async () => {
         setErroEmail('');
         setErroSenha('');
         setErroConfirmarSenha('');
@@ -47,10 +49,31 @@ export default function CadastroScreen() {
             formValido = false;
         }
 
-        if (formValido) {
-            Alert.alert('Sucesso', 'Cadastro realizado com sucesso!');
-            // Redirecionar para a tela de login após cadastro
-            router.push('/');
+        if (!formValido) return;
+
+        setLoading(true);
+
+        try {
+            // Cadastro no Supabase
+            const { data, error } = await supabase.auth.signUp({
+                email: email,
+                password: senha,
+            });
+
+            if (error) {
+                Alert.alert('Erro no cadastro', error.message);
+                return;
+            }
+
+            if (data.user) {
+                Alert.alert('Sucesso', 'Cadastro realizado com sucesso! Verifique seu email para confirmação.');
+                router.push('/');
+            }
+
+        } catch (error) {
+            Alert.alert('Erro', 'Ocorreu um erro inesperado. Tente novamente.');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -122,10 +145,13 @@ export default function CadastroScreen() {
 
                 {/* Botão de Cadastro */}
                 <TouchableOpacity 
-                    style={styles.cadastroButton} 
-                    onPress={handleCadastro} 
+                    style={[styles.cadastroButton, loading && styles.disabledButton]} 
+                    onPress={handleCadastro}
+                    disabled={loading}
                 >
-                    <Text style={styles.cadastroButtonText}>Cadastrar</Text>
+                    <Text style={styles.cadastroButtonText}>
+                        {loading ? 'Cadastrando...' : 'Cadastrar'}
+                    </Text>
                 </TouchableOpacity>
                 
                 {/* Link para a tela de login */}
@@ -234,5 +260,8 @@ const styles = StyleSheet.create({
   loginLink: {
     fontWeight: 'bold',
     color: '#8b0000',
+  },
+  disabledButton: {
+    opacity: 0.7,
   },
 });
