@@ -20,6 +20,7 @@ interface Musica {
   album: string | null;
   url_capa: string | null;
   url_spotify: string | null;
+  year?: number;
 }
 
 interface Suggestion {
@@ -45,9 +46,15 @@ const SuggestionItem = ({ item }: { item: Suggestion }) => (
   </TouchableOpacity>
 );
 
-const AlbumResultItem = ({ item }: { item: Musica }) => (
-  <TouchableOpacity style={styles.albumItem}>
-    <Image source={{ uri: item.url_capa || 'https://via.placeholder.com/150' }} style={styles.albumImage} />
+const AlbumResultItem = ({ item, onPress }: { item: Musica; onPress: (album: Musica) => void }) => (
+  <TouchableOpacity 
+    style={styles.albumItem} 
+    onPress={() => onPress(item)}
+  >
+    <Image 
+      source={{ uri: item.url_capa || 'https://via.placeholder.com/150' }} 
+      style={styles.albumImage} 
+    />
     <View style={styles.albumInfo}>
       <Text style={styles.albumTitle}>{item.album || item.title || 'Sem título'}</Text>
       <Text style={styles.albumArtist}>{item.artist}</Text>
@@ -73,9 +80,24 @@ const CustomBottomNav = () => {
 };
 
 export default function SearchScreen() {
+  const router = useRouter();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const handleAlbumPress = (album: Musica) => {
+  // Navega para a tela de resenha passando os dados do álbum como parâmetros
+  router.push({
+    pathname: '/album-review',
+    params: {
+      albumName: encodeURIComponent(album.album || album.title || 'Álbum Desconhecido'),
+      artist: encodeURIComponent(album.artist),
+      year: album.year?.toString() || '2020',
+      trackCount: '12',
+      coverUrl: encodeURIComponent(album.url_capa || '')
+    }
+  });
+};
 
   useEffect(() => {
     const searchInSupabase = async () => {
@@ -150,7 +172,7 @@ export default function SearchScreen() {
               return <SuggestionItem item={item} />;
             }
             if (item.type === 'album') {
-              return <AlbumResultItem item={item} />;
+              return <AlbumResultItem item={item} onPress={handleAlbumPress} />;
             }
             return null;
           }}
