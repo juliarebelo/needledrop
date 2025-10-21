@@ -1,8 +1,9 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
     Alert,
+    KeyboardAvoidingView,
+    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -12,10 +13,10 @@ import {
 } from 'react-native';
 import { AvaliacaoService } from '../../services/avaliacaoServices';
 
-// Mock - substitua pela sua autenticação real depois
+// Mock - substitua pela autenticação real
 const USUARIO_ATUAL = {
   id: 'user-123',
-  nome: 'Usuário Teste'
+  nome: 'João Silva'
 };
 
 export default function ResenhaScreen() {
@@ -24,26 +25,25 @@ export default function ResenhaScreen() {
   
   const [nota, setNota] = useState(0);
   const [comentario, setComentario] = useState('');
-  const [carregando, setCarregando] = useState(false);
+  const [enviando, setEnviando] = useState(false);
 
-  // ✅ CORREÇÃO: Garantir que album.id seja string
+  // Dados do álbum
   const album = {
-    id: Array.isArray(params.albumId) ? params.albumId[0] : params.albumId || 'default-id',
-    titulo: Array.isArray(params.titulo) ? params.titulo[0] : params.titulo || 'Álbum Desconhecido',
-    artista: Array.isArray(params.artista) ? params.artista[0] : params.artista || 'Artista Desconhecido',
+    id: Array.isArray(params.albumId) ? params.albumId[0] : params.albumId || '1',
+    titulo: Array.isArray(params.titulo) ? params.titulo[0] : params.titulo || 'Álbum',
+    artista: Array.isArray(params.artista) ? params.artista[0] : params.artista || 'Artista',
     ano: Array.isArray(params.ano) ? params.ano[0] : params.ano || '2020'
   };
 
   const handlePublicar = async () => {
     if (nota === 0) {
-      Alert.alert('Atenção', 'Por favor, dê uma nota de 1 a 10!');
+      Alert.alert('Atenção', 'Por favor, selecione uma nota!');
       return;
     }
 
-    setCarregando(true);
+    setEnviando(true);
 
     try {
-      // ✅ CORREÇÃO: Agora album.id é garantidamente string
       await AvaliacaoService.salvarAvaliacao({
         usuario_id: USUARIO_ATUAL.id,
         album_id: album.id,
@@ -54,199 +54,319 @@ export default function ResenhaScreen() {
       Alert.alert('Sucesso', 'Resenha publicada com sucesso!');
       router.back();
     } catch (error) {
-      console.error('Erro detalhado:', error);
-      Alert.alert('Erro', 'Não foi possível publicar a resenha. Tente novamente.');
+      console.error('Erro:', error);
+      Alert.alert('Erro', 'Não foi possível publicar a resenha');
     } finally {
-      setCarregando(false);
+      setEnviando(false);
     }
   };
 
-  const renderBotoesNota = () => {
-    return (
-      <View style={styles.botoesContainer}>
-        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
+  // Renderizar 5 estrelas com opções de 0.5 em 0.5
+  const renderEstrelas = () => {
+    const estrelas = [];
+    
+    for (let i = 1; i <= 5; i++) {
+      // Verificar se esta estrela deve estar preenchida
+      const estrelaCheia = nota >= i;
+      const meiaEstrela = nota >= i - 0.5 && nota < i;
+      
+      estrelas.push(
+        <TouchableOpacity
+          key={i}
+          style={styles.estrelaContainer}
+          onPress={() => {
+            // Toque na estrela inteira = nota inteira
+            setNota(i);
+          }}
+          onLongPress={() => {
+            // Press longa = meia estrela
+            setNota(i - 0.5);
+          }}
+          delayLongPress={200}
+        >
+          {/* Estrela de fundo (sempre vazia) */}
+          <Text style={styles.estrelaFundo}>⭐</Text>
+          
+          {/* Overlay para estrela cheia ou meia estrela */}
+          {estrelaCheia && (
+            <Text style={styles.estrelaPreenchida}>⭐</Text>
+          )}
+          
+          {meiaEstrela && (
+            <View style={styles.meiaEstrelaOverlay}>
+              <Text style={styles.estrelaPreenchida}>⭐</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      );
+    }
+    
+    return estrelas;
+  };
+
+  // Versão alternativa mais simples - apenas toques nas estrelas
+  const renderEstrelasSimples = () => {
+    const estrelas = [];
+    
+    for (let i = 1; i <= 5; i++) {
+      estrelas.push(
+        <TouchableOpacity
+          key={i}
+          onPress={() => {
+            // Toque simples: estrela cheia
+            setNota(i);
+          }}
+        >
+          <Text style={
+            nota >= i ? styles.estrelaCheia : styles.estrelaVazia
+          }>
+            ⭐
+          </Text>
+        </TouchableOpacity>
+      );
+      
+      // Adicionar botão para meia estrela entre as estrelas
+      if (i < 5) {
+        estrelas.push(
           <TouchableOpacity
-            key={num}
-            style={[
-              styles.botaoNota,
-              nota === num ? styles.botaoSelecionado : styles.botaoNormal
-            ]}
-            onPress={() => setNota(num)}
+            key={`meia-${i}`}
+            style={styles.pontoMeiaEstrela}
+            onPress={() => setNota(i + 0.5)}
           >
-            <Text style={[
-              styles.textoNota,
-              nota === num ? styles.textoSelecionado : styles.textoNormal
-            ]}>
-              {num}
-            </Text>
+            <Text style={styles.pontoTexto}>•</Text>
           </TouchableOpacity>
-        ))}
-      </View>
-    );
+        );
+      }
+    }
+    
+    return estrelas;
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.titulo}>Resenha</Text>
-        <Text style={styles.subtitulo}>Escreva uma resenha</Text>
-      </View>
+    <KeyboardAvoidingView 
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        
+        {/* Cabeçalho */}
+        <View style={styles.cabecalho}>
+          <Text style={styles.tituloPrincipal}>Resenha</Text>
+          <Text style={styles.subtitulo}>Escreva uma resenha</Text>
+        </View>
 
-      <View style={styles.albumInfo}>
-        <Text style={styles.albumNome}>{album.titulo}</Text>
-        <Text style={styles.albumDetalhes}>{album.artista} • {album.ano}</Text>
-      </View>
+        {/* Card do Álbum */}
+        <View style={styles.cardAlbum}>
+          <Text style={styles.albumTitulo}>{album.titulo}</Text>
+          <Text style={styles.albumInfo}>{album.artista} • {album.ano}</Text>
+          <Text style={styles.albumMusicas}>12 músicas</Text>
+        </View>
 
-      <View style={styles.secao}>
-        <Text style={styles.label}>De a sua nota</Text>
-        {renderBotoesNota()}
-        <Text style={styles.notaSelecionada}>
-          {nota > 0 ? `Nota selecionada: ${nota}/10` : 'Selecione uma nota'}
-        </Text>
-      </View>
+        {/* Seção de Nota */}
+        <View style={styles.secao}>
+          <Text style={styles.secaoTitulo}>De a sua nota</Text>
+          
+          {/* Estrelas Visuais - Versão Simples */}
+          <View style={styles.estrelasContainer}>
+            {renderEstrelasSimples()}
+          </View>
+          
+          <Text style={styles.instrucoes}>
+            Toque nas estrelas para nota inteira • Toque nos pontos para meia estrela
+          </Text>
+          
+          {nota > 0 && (
+            <Text style={styles.notaSelecionada}>
+              Nota selecionada: {nota}/5
+            </Text>
+          )}
+        </View>
 
-      <View style={styles.secao}>
-        <Text style={styles.label}>Escreva aqui o que achou desse álbum...</Text>
-        <TextInput
-          style={styles.textarea}
-          multiline
-          numberOfLines={6}
-          placeholder="Compartilhe sua opinião sobre as músicas, produção, letras..."
-          value={comentario}
-          onChangeText={setComentario}
-          textAlignVertical="top"
-        />
-      </View>
+        {/* Seção de Comentário */}
+        <View style={styles.secao}>
+          <Text style={styles.secaoTitulo}>Escreva aqui o que achou desse álbum...</Text>
+          <TextInput
+            style={styles.inputComentario}
+            multiline
+            numberOfLines={8}
+            placeholder="Descreva sua experiência com este álbum, destaque faixas favoritas, produção musical, letras..."
+            value={comentario}
+            onChangeText={setComentario}
+            textAlignVertical="top"
+            placeholderTextColor="#999"
+          />
+        </View>
 
-      <TouchableOpacity
-        style={[styles.botaoPublicar, (carregando || nota === 0) && styles.botaoDesabilitado]}
-        onPress={handlePublicar}
-        disabled={carregando || nota === 0}
-      >
-        {carregando ? (
-          <ActivityIndicator color="#FFF" />
-        ) : (
-          <Text style={styles.textoBotao}>Publicar</Text>
-        )}
-      </TouchableOpacity>
+        {/* Botão Publicar */}
+        <TouchableOpacity
+          style={[
+            styles.botaoPublicar,
+            (nota === 0 || enviando) && styles.botaoPublicarDesabilitado
+          ]}
+          onPress={handlePublicar}
+          disabled={nota === 0 || enviando}
+        >
+          <Text style={styles.botaoPublicarTexto}>
+            {enviando ? 'Publicando...' : 'Publicar'}
+          </Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity style={styles.botaoCancelar} onPress={() => router.back()}>
-        <Text style={styles.textoCancelar}>Cancelar</Text>
-      </TouchableOpacity>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF',
+    backgroundColor: '#FFFFFF',
+  },
+  scrollContent: {
+    flexGrow: 1,
     padding: 20,
   },
-  header: {
+  cabecalho: {
     alignItems: 'center',
     marginBottom: 30,
+    paddingTop: 10,
   },
-  titulo: {
+  tituloPrincipal: {
     fontSize: 24,
     fontWeight: 'bold',
+    color: '#000000',
+    marginBottom: 5,
   },
   subtitulo: {
     fontSize: 16,
-    color: '#666',
-    marginTop: 5,
+    color: '#666666',
+  },
+  cardAlbum: {
+    backgroundColor: '#F8F8F8',
+    padding: 20,
+    borderRadius: 12,
+    marginBottom: 30,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+  },
+  albumTitulo: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#000000',
+    marginBottom: 4,
   },
   albumInfo: {
-    backgroundColor: '#F8F8F8',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 25,
+    fontSize: 16,
+    color: '#666666',
+    marginBottom: 2,
   },
-  albumNome: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  albumDetalhes: {
+  albumMusicas: {
     fontSize: 14,
-    color: '#666',
-    marginTop: 4,
+    color: '#888888',
   },
   secao: {
-    marginBottom: 25,
+    marginBottom: 30,
   },
-  label: {
-    fontSize: 16,
+  secaoTitulo: {
+    fontSize: 18,
     fontWeight: '600',
+    color: '#000000',
     marginBottom: 15,
   },
-  botoesContainer: {
+  // Estilos para estrelas
+  estrelasContainer: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  botaoNota: {
-    width: '18%',
-    aspectRatio: 1,
-    borderRadius: 8,
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 10,
+    flexWrap: 'wrap',
   },
-  botaoNormal: {
-    backgroundColor: '#F0F0F0',
-    borderWidth: 1,
-    borderColor: '#DDD',
+  estrelaCheia: {
+    fontSize: 40,
+    color: '#FFD700', // Amarelo ouro
+    marginHorizontal: 5,
   },
-  botaoSelecionado: {
-    backgroundColor: '#000',
+  estrelaVazia: {
+    fontSize: 40,
+    color: '#DDDDDD', // Cinza claro
+    marginHorizontal: 5,
+    opacity: 0.5,
   },
-  textoNota: {
-    fontSize: 14,
+  pontoMeiaEstrela: {
+    paddingHorizontal: 8,
+    paddingVertical: 10,
+  },
+  pontoTexto: {
+    fontSize: 20,
+    color: '#666666',
     fontWeight: 'bold',
   },
-  textoNormal: {
-    color: '#333',
-  },
-  textoSelecionado: {
-    color: '#FFF',
-  },
-  notaSelecionada: {
-    fontSize: 14,
-    color: '#666',
+  instrucoes: {
+    fontSize: 12,
+    color: '#888888',
     textAlign: 'center',
+    marginTop: 5,
     fontStyle: 'italic',
+  },
+  // Estilos para versão complexa (com overlay)
+  estrelaContainer: {
+    position: 'relative',
+    marginHorizontal: 5,
+  },
+  estrelaFundo: {
+    fontSize: 40,
+    color: '#DDDDDD',
+    opacity: 0.5,
+  },
+  estrelaPreenchida: {
+    fontSize: 40,
+    color: '#FFD700',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+  },
+  meiaEstrelaOverlay: {
+    position: 'absolute',
+    width: '50%',
+    height: '100%',
+    overflow: 'hidden',
+  },
+  // Estilos comuns
+  notaSelecionada: {
+    fontSize: 16,
+    color: '#000000',
+    textAlign: 'center',
+    fontWeight: '600',
     marginTop: 10,
   },
-  textarea: {
+  inputComentario: {
     borderWidth: 1,
-    borderColor: '#DDD',
+    borderColor: '#DDDDDD',
     borderRadius: 8,
-    padding: 15,
+    padding: 16,
     fontSize: 16,
-    minHeight: 120,
+    minHeight: 150,
     backgroundColor: '#FAFAFA',
+    textAlignVertical: 'top',
+    color: '#000000',
   },
   botaoPublicar: {
-    backgroundColor: '#000',
-    padding: 16,
+    backgroundColor: '#000000',
+    paddingVertical: 16,
     borderRadius: 8,
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  botaoDesabilitado: {
-    backgroundColor: '#CCC',
+  botaoPublicarDesabilitado: {
+    backgroundColor: '#CCCCCC',
   },
-  textoBotao: {
-    color: '#FFF',
-    fontSize: 16,
+  botaoPublicarTexto: {
+    color: '#FFFFFF',
+    fontSize: 18,
     fontWeight: 'bold',
-  },
-  botaoCancelar: {
-    padding: 10,
-    alignItems: 'center',
-  },
-  textoCancelar: {
-    color: '#666',
-    fontSize: 16,
   },
 });
