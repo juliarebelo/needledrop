@@ -11,9 +11,32 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { Album, mockAlbuns, mockSuggestions, Suggestion } from '../../data/mockData';
+import { supabase } from '../../services/supabase';
 
-type SearchResult = (Album & { type: 'album' }) | (Suggestion & { type: 'suggestion' });
+interface Musica {
+  id: string;
+  title: string | null;
+  artist: string;
+  album: string | null;
+  url_capa: string | null;
+  url_spotify: string | null;
+}
+
+interface Suggestion {
+  id: string;
+  texto: string;
+}
+
+type SearchResult = (Musica & { type: 'album' }) | (Suggestion & { type: 'suggestion' });
+
+// Sugestões fixas (podem vir do Supabase depois)
+const mockSuggestions: Suggestion[] = [
+  { id: "s1", texto: "Rock" },
+  { id: "s2", texto: "Pop" },
+  { id: "s3", texto: "MPB" },
+  { id: "s4", texto: "Sertanejo" },
+  { id: "s5", texto: "Funk" },
+];
 
 const SuggestionItem = ({ item }: { item: Suggestion }) => (
   <TouchableOpacity style={styles.suggestionItem}>
@@ -22,12 +45,12 @@ const SuggestionItem = ({ item }: { item: Suggestion }) => (
   </TouchableOpacity>
 );
 
-const AlbumResultItem = ({ item }: { item: Album }) => (
+const AlbumResultItem = ({ item }: { item: Musica }) => (
   <TouchableOpacity style={styles.albumItem}>
-    <Image source={{ uri: item.capaUrl }} style={styles.albumImage} />
+    <Image source={{ uri: item.url_capa || 'https://via.placeholder.com/150' }} style={styles.albumImage} />
     <View style={styles.albumInfo}>
-      <Text style={styles.albumTitle}>{item.titulo}</Text>
-      <Text style={styles.albumArtist}>{item.artista} - {item.ano}</Text>
+      <Text style={styles.albumTitle}>{item.album || item.title || 'Sem título'}</Text>
+      <Text style={styles.albumArtist}>{item.artist}</Text>
     </View>
   </TouchableOpacity>
 );
@@ -55,27 +78,46 @@ export default function SearchScreen() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (query.length > 0) {
-      setLoading(true);
+    const searchInSupabase = async () => {
+      if (query.length > 0) {
+        setLoading(true);
 
-      const lowerCaseQuery = query.toLowerCase();
+        try {
+          // Busca no Supabase
+          const { data: musicasData, error } = await supabase
+            .from('musicas')
+            .select('id, title, artist, album, url_capa, url_spotify')
+            .or(`title.ilike.%${query}%,artist.ilike.%${query}%,album.ilike.%${query}%`)
+            .limit(20);
 
-      const filteredSuggestions: SearchResult[] = mockSuggestions
-        .filter((s: Suggestion) => s.texto.toLowerCase().startsWith(lowerCaseQuery))
-        .map((s: Suggestion) => ({ ...s, type: 'suggestion' }));
+          if (error) {
+            console.error('Erro na busca:', error);
+            setResults([]);
+          } else {
+            const filteredAlbuns: SearchResult[] = (musicasData || []).map((a: Musica) => ({ 
+              ...a, 
+              type: 'album' 
+            }));
 
-      const filteredAlbuns: SearchResult[] = mockAlbuns
-        .filter((album: Album) => 
-          album.titulo.toLowerCase().includes(lowerCaseQuery) ||
-          album.artista.toLowerCase().includes(lowerCaseQuery)
-        )
-        .map((a: Album) => ({ ...a, type: 'album' }));
+            // Filtra sugestões que começam com a query
+            const filteredSuggestions: SearchResult[] = mockSuggestions
+              .filter((s: Suggestion) => s.texto.toLowerCase().startsWith(query.toLowerCase()))
+              .map((s: Suggestion) => ({ ...s, type: 'suggestion' }));
 
-      setResults([...filteredSuggestions, ...filteredAlbuns]);
-      setLoading(false);
-    } else {
-      setResults([]);
-    }
+            setResults([...filteredSuggestions, ...filteredAlbuns]);
+          }
+        } catch (error) {
+          console.error('Erro na busca:', error);
+          setResults([]);
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        setResults([]);
+      }
+    };
+
+    searchInSupabase();
   }, [query]);
 
   return (

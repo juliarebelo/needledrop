@@ -2,21 +2,29 @@ import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    Alert,
-    FlatList, Image,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  Alert,
+  FlatList, Image,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
-import { Album, mockAlbuns } from '../../../data/mockData';
+import { supabase } from '../../../services/supabase';
+
+interface Musica {
+  id: string;
+  title: string | null;
+  artist: string;
+  album: string | null;
+  url_capa: string | null;
+}
 
 interface Playlist {
   id: string;
   titulo: string;
   capaUrl: string;
-  albuns: Album[];
+  musicas: Musica[];
 }
 
 export default function PlaylistDetailScreen() {
@@ -24,55 +32,71 @@ export default function PlaylistDetailScreen() {
   const router = useRouter();
   const [playlist, setPlaylist] = useState<Playlist | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<Album[]>([]);
+  const [searchResults, setSearchResults] = useState<Musica[]>([]);
   const [showSearch, setShowSearch] = useState(false);
 
   useEffect(() => {
-    // Mock data - depois substitua por dados reais
+    // Mock data temporário - depois substitua por busca real no Supabase
     const mockPlaylist: Playlist = {
       id: id as string,
       titulo: 'Minha Playlist',
       capaUrl: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=150&h=150&fit=crop',
-      albuns: [] // CORREÇÃO: removida a barra extra
+      musicas: []
     };
     setPlaylist(mockPlaylist);
   }, [id]);
 
-  // Buscar álbuns
+  // Buscar músicas no Supabase
   useEffect(() => {
-    if (searchQuery.length > 0) {
-      const results = mockAlbuns.filter(album =>
-        album.titulo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        album.artista.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      setSearchResults(results);
-    } else {
-      setSearchResults([]);
-    }
+    const buscarMusicas = async () => {
+      if (searchQuery.length > 0) {
+        try {
+          const { data, error } = await supabase
+            .from('musicas')
+            .select('id, title, artist, album, url_capa')
+            .or(`title.ilike.%${searchQuery}%,artist.ilike.%${searchQuery}%,album.ilike.%${searchQuery}%`)
+            .limit(10);
+
+          if (error) {
+            console.error('Erro na busca:', error);
+            setSearchResults([]);
+          } else {
+            setSearchResults(data || []);
+          }
+        } catch (error) {
+          console.error('Erro na busca:', error);
+          setSearchResults([]);
+        }
+      } else {
+        setSearchResults([]);
+      }
+    };
+
+    buscarMusicas();
   }, [searchQuery]);
 
-  // Adicionar álbum à playlist
-  const adicionarAlbum = (album: Album) => {
-    if (playlist && !playlist.albuns.some(a => a.id === album.id)) {
+  // Adicionar música à playlist
+  const adicionarMusica = (musica: Musica) => {
+    if (playlist && !playlist.musicas.some(m => m.id === musica.id)) {
       const updatedPlaylist = {
         ...playlist,
-        albuns: [...playlist.albuns, album]
+        musicas: [...playlist.musicas, musica]
       };
       setPlaylist(updatedPlaylist);
       setSearchQuery('');
       setShowSearch(false);
-      Alert.alert('Sucesso!', `${album.titulo} adicionado à playlist`);
+      Alert.alert('Sucesso!', `${musica.album || musica.title} adicionado à playlist`);
     } else {
-      Alert.alert('Aviso', 'Este álbum já está na playlist');
+      Alert.alert('Aviso', 'Esta música já está na playlist');
     }
   };
 
-  // Remover álbum da playlist
-  const removerAlbum = (albumId: string) => {
+  // Remover música da playlist
+  const removerMusica = (musicaId: string) => {
     if (playlist) {
       Alert.alert(
-        'Remover Álbum',
-        'Tem certeza que deseja remover este álbum da playlist?',
+        'Remover Música',
+        'Tem certeza que deseja remover esta música da playlist?',
         [
           { text: 'Cancelar', style: 'cancel' },
           {
@@ -81,7 +105,7 @@ export default function PlaylistDetailScreen() {
             onPress: () => {
               const updatedPlaylist = {
                 ...playlist,
-                albuns: playlist.albuns.filter(album => album.id !== albumId)
+                musicas: playlist.musicas.filter(musica => musica.id !== musicaId)
               };
               setPlaylist(updatedPlaylist);
             }
@@ -118,7 +142,7 @@ export default function PlaylistDetailScreen() {
         <View style={styles.playlistInfo}>
           <Text style={styles.playlistTitulo}>{playlist.titulo}</Text>
           <Text style={styles.playlistCount}>
-            {playlist.albuns.length} {playlist.albuns.length === 1 ? 'álbum' : 'álbuns'}
+            {playlist.musicas.length} {playlist.musicas.length === 1 ? 'música' : 'músicas'}
           </Text>
         </View>
       </View>
@@ -128,7 +152,7 @@ export default function PlaylistDetailScreen() {
         <View style={styles.searchContainer}>
           <TextInput
             style={styles.searchInput}
-            placeholder="Buscar álbuns..."
+            placeholder="Buscar músicas..."
             placeholderTextColor="#aaa"
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -150,12 +174,12 @@ export default function PlaylistDetailScreen() {
             renderItem={({ item }) => (
               <TouchableOpacity 
                 style={styles.searchResultItem}
-                onPress={() => adicionarAlbum(item)}
+                onPress={() => adicionarMusica(item)}
               >
-                <Image source={{ uri: item.capaUrl }} style={styles.albumImage} />
+                <Image source={{ uri: item.url_capa || 'https://via.placeholder.com/150' }} style={styles.albumImage} />
                 <View style={styles.albumInfo}>
-                  <Text style={styles.albumTitle}>{item.titulo}</Text>
-                  <Text style={styles.albumArtist}>{item.artista}</Text>
+                  <Text style={styles.albumTitle}>{item.album || item.title || 'Sem título'}</Text>
+                  <Text style={styles.albumArtist}>{item.artist}</Text>
                 </View>
                 <Feather name="plus" size={20} color="#1DB954" />
               </TouchableOpacity>
@@ -164,33 +188,33 @@ export default function PlaylistDetailScreen() {
         </View>
       )}
 
-      {/* Álbuns da Playlist */}
-      <View style={styles.albunsSection}>
+      {/* Músicas da Playlist */}
+      <View style={styles.musicasSection}>
         <Text style={styles.sectionTitle}>
-          Álbuns na Playlist ({playlist.albuns.length})
+          Músicas na Playlist ({playlist.musicas.length})
         </Text>
         
-        {playlist.albuns.length === 0 ? (
+        {playlist.musicas.length === 0 ? (
           <View style={styles.emptyState}>
             <Feather name="music" size={50} color="#666" />
-            <Text style={styles.emptyText}>Nenhum álbum nesta playlist</Text>
+            <Text style={styles.emptyText}>Nenhuma música nesta playlist</Text>
             <Text style={styles.emptySubtext}>
-              Toque no + para adicionar álbuns
+              Toque no + para adicionar músicas
             </Text>
           </View>
         ) : (
           <FlatList
-            data={playlist.albuns}
+            data={playlist.musicas}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
-              <TouchableOpacity style={styles.playlistAlbumItem}>
-                <Image source={{ uri: item.capaUrl }} style={styles.albumImage} />
+              <TouchableOpacity style={styles.playlistMusicaItem}>
+                <Image source={{ uri: item.url_capa || 'https://via.placeholder.com/150' }} style={styles.albumImage} />
                 <View style={styles.albumInfo}>
-                  <Text style={styles.albumTitle}>{item.titulo}</Text>
-                  <Text style={styles.albumArtist}>{item.artista}</Text>
+                  <Text style={styles.albumTitle}>{item.album || item.title || 'Sem título'}</Text>
+                  <Text style={styles.albumArtist}>{item.artist}</Text>
                 </View>
                 <TouchableOpacity 
-                  onPress={() => removerAlbum(item.id)}
+                  onPress={() => removerMusica(item.id)}
                   style={styles.removeButton}
                 >
                   <Feather name="trash-2" size={18} color="#FF4444" />
@@ -281,7 +305,7 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 10,
   },
-  playlistAlbumItem: {
+  playlistMusicaItem: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#4a1e1e',
@@ -310,7 +334,7 @@ const styles = StyleSheet.create({
   removeButton: {
     padding: 8,
   },
-  albunsSection: {
+  musicasSection: {
     flex: 1,
     paddingHorizontal: 20,
   },

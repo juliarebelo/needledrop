@@ -10,6 +10,7 @@ import {
   TextInput,
   TouchableOpacity, View
 } from 'react-native';
+import { supabase } from '../../services/supabase';
 
 interface Usuario {
   id: string;
@@ -99,10 +100,10 @@ const CustomBottomNav = () => {
 };
 
 export default function Homepage() {
-  const router = useRouter(); // ✅ ADICIONADO
+  const router = useRouter();
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
-  const [recomendados, setRecomendados] = useState<Album[]>([]);
+  const [albuns, setAlbuns] = useState<Album[]>([]);
   const [loading, setLoading] = useState(true);
   
   const [favoritos, setFavoritos] = useState<string[]>([]);
@@ -154,6 +155,48 @@ export default function Homepage() {
     );
   };
 
+  // BUSCAR ÁLBUNS ÚNICOS DO SUPABASE
+  const buscarAlbunsUnicos = async (): Promise<Album[]> => {
+    try {
+      // Busca álbuns distintos da tabela musicas
+      const { data: musicasData, error } = await supabase
+        .from('musicas')
+        .select('id, artist, album, url_capa')
+        .not('album', 'is', null) // Só álbuns com nome
+        .order('views', { ascending: false }) // Ordena por views (mais populares)
+        .limit(50); // Busca mais para depois filtrar únicos
+
+      if (error) {
+        console.error('Erro ao buscar álbuns:', error);
+        return [];
+      }
+
+      // Filtra álbuns únicos (não repete mesmo artista + mesmo álbum)
+      const albunsUnicos: Album[] = [];
+      const albunsVistos = new Set<string>();
+
+      musicasData.forEach(musica => {
+        const chaveUnica = `${musica.artist.toLowerCase()}-${musica.album.toLowerCase()}`;
+        
+        if (!albunsVistos.has(chaveUnica)) {
+          albunsVistos.add(chaveUnica);
+          albunsUnicos.push({
+            id: musica.id,
+            titulo: musica.album,
+            artista: musica.artist,
+            capaUrl: musica.url_capa || 'https://via.placeholder.com/150'
+          });
+        }
+      });
+
+      return albunsUnicos.slice(0, 20); // Retorna no máximo 20 álbuns únicos
+
+    } catch (error) {
+      console.error('Erro na busca de álbuns:', error);
+      return [];
+    }
+  };
+
   const AddPlaylistCard = () => (
     <TouchableOpacity 
       style={[styles.playlistCard, styles.addCard]} 
@@ -167,25 +210,41 @@ export default function Homepage() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [usuarioRes, playlistsRes, recomendadosRes] = await Promise.all([
+
+        // Busca dados em paralelo
+        const [albunsData, usuarioRes, playlistsRes] = await Promise.all([
+          buscarAlbunsUnicos(),
           fetch(`${API_BASE_URL}/api/usuarios/me`),
           fetch(`${API_BASE_URL}/api/me/playlists`),
-          fetch(`${API_BASE_URL}/api/recomendacoes`),
         ]);
 
-        if (!usuarioRes.ok || !playlistsRes.ok || !recomendadosRes.ok) {
-          throw new Error('Falha ao buscar dados do servidor');
+        // Define os álbuns do Supabase
+        setAlbuns(albunsData);
+
+        // Usuário e playlists (mantém da API por enquanto)
+        if (usuarioRes.ok) {
+          const usuarioData: Usuario = await usuarioRes.json();
+          setUsuario(usuarioData);
         }
 
-        const usuarioData: Usuario = await usuarioRes.json();
-        const playlistsData: Playlist[] = await playlistsRes.json();
-        const recomendadosData: Album[] = await recomendadosRes.json();
+        if (playlistsRes.ok) {
+          const playlistsData: Playlist[] = await playlistsRes.json();
+          setPlaylists(playlistsData);
+        }
 
-        setUsuario(usuarioData);
-        setPlaylists(playlistsData);
-        setRecomendados(recomendadosData);
       } catch (err) {
-        console.error(err);
+        console.error('Erro ao buscar dados:', err);
+        
+        // Fallback em caso de erro
+        try {
+          const fallbackRes = await fetch(`${API_BASE_URL}/api/recomendacoes`);
+          if (fallbackRes.ok) {
+            const fallbackData: Album[] = await fallbackRes.json();
+            setAlbuns(fallbackData);
+          }
+        } catch (fallbackError) {
+          console.error('Erro no fallback:', fallbackError);
+        }
       } finally {
         setLoading(false);
       }
@@ -248,7 +307,7 @@ export default function Homepage() {
               <PlaylistCard 
                 item={item} 
                 onDelete={excluirPlaylist}
-                onPress={(id) => router.push({ pathname: '/(tabs)/Playlist/[id]', params: { id } })}
+                onPress={(id) => router.push(`/(tabs)/Playlist/${id}`)}
               />
             )}
             keyExtractor={item => item.id}
@@ -259,8 +318,8 @@ export default function Homepage() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Álbuns recomendados</Text>
-          {recomendados.map(item => (
+          <Text style={styles.sectionTitle}>Álbuns em Destaque</Text>
+          {albuns.map(item => (
             <AlbumListItem 
               key={item.id} 
               item={item} 
