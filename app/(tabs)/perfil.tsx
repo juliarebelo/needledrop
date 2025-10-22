@@ -131,10 +131,9 @@ export default function PerfilScreen() {
           <Text style={styles.userEmail}>{user?.email || 'monobolasclub@gmail.com'}</Text>
         </View>
 
-        {/* Seção de Álbuns Favoritos */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Albuns favorites</Text>
+            <Text style={styles.sectionTitle}>Álbuns Favoritos</Text>
             <TouchableOpacity onPress={() => router.push('/minhas-resenhas')}>
               <Text style={styles.seeAllText}>Ver todos</Text>
             </TouchableOpacity>

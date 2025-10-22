@@ -3,7 +3,6 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList, Image,
   Modal,
   ScrollView, StatusBar, StyleSheet, Text,
@@ -41,7 +40,7 @@ const Header = ({ usuario }: { usuario: Usuario | null }) => {
       <TouchableOpacity onPress={() => alert('Abrir menu lateral!')}>
         <Feather name="menu" size={32} color="#FFFFFF" />
       </TouchableOpacity>
-      <Text style={styles.greeting}>Olá, {usuario?.nome || 'Usuário'}!</Text>
+      <Text style={styles.greeting}>Olá, {usuario?.nome || 'Amigo'}!</Text>
       <TouchableOpacity onPress={() => router.push('/(tabs)/perfil')}>
         <Image
           source={{ uri: usuario?.fotoUrl || 'https://via.placeholder.com/150' }}
@@ -110,28 +109,13 @@ export default function Homepage() {
   const [modalVisible, setModalVisible] = useState(false);
   const [novaPlaylistTitulo, setNovaPlaylistTitulo] = useState('');
 
-  // FUNÇÃO EXCLUIR PLAYLIST
+  // FUNÇÃO EXCLUIR PLAYLIST (sem Alert)
   const excluirPlaylist = (playlistId: string) => {
-    Alert.alert(
-      "Excluir Playlist",
-      "Tem certeza que deseja excluir esta playlist?",
-      [
-        { text: "Cancelar", style: "cancel" },
-        { 
-          text: "Excluir", 
-          style: "destructive",
-          onPress: () => {
-            setPlaylists(playlists.filter(playlist => playlist.id !== playlistId));
-            Alert.alert('Sucesso', 'Playlist excluída!');
-          }
-        }
-      ]
-    );
+    setPlaylists(playlists.filter(playlist => playlist.id !== playlistId));
   };
 
   const criarPlaylist = () => {
     if (novaPlaylistTitulo.trim() === '') {
-      Alert.alert('Erro', 'Digite um nome para a playlist');
       return;
     }
 
@@ -144,7 +128,6 @@ export default function Homepage() {
     setPlaylists([...playlists, novaPlaylist]);
     setNovaPlaylistTitulo('');
     setModalVisible(false);
-    Alert.alert('Sucesso', `Playlist "${novaPlaylistTitulo}" criada!`);
   };
 
   const toggleFavorito = (albumId: string) => {
@@ -155,23 +138,55 @@ export default function Homepage() {
     );
   };
 
+  // ÁLBUNS DECORATIVOS PARA ENFEITAR A TELA
+  const albunsDecorativos: Album[] = [
+    {
+      id: '1',
+      titulo: 'After Hours',
+      artista: 'The Weeknd',
+      capaUrl: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=300&h=300&fit=crop'
+    },
+    {
+      id: '2',
+      titulo: 'Future Nostalgia',
+      artista: 'Dua Lipa',
+      capaUrl: 'https://images.unsplash.com/photo-1571330735066-03aaa9429d89?w=300&h=300&fit=crop'
+    },
+    {
+      id: '4',
+      titulo: 'Chromatica',
+      artista: 'Lady Gaga',
+      capaUrl: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300&h=300&fit=crop'
+    },
+    {
+      id: '5',
+      titulo: 'Happier Than Ever',
+      artista: 'Billie Eilish',
+      capaUrl: 'https://images.unsplash.com/photo-1516280440614-37939bbacd81?w=300&h=300&fit=crop'
+    },
+    {
+      id: '6',
+      titulo: 'Dawn FM',
+      artista: 'The Weeknd',
+      capaUrl: 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=300&h=300&fit=crop'
+    }
+  ];
+
   // BUSCAR ÁLBUNS ÚNICOS DO SUPABASE
   const buscarAlbunsUnicos = async (): Promise<Album[]> => {
     try {
-      // Busca álbuns distintos da tabela musicas
       const { data: musicasData, error } = await supabase
         .from('musicas')
         .select('id, artist, album, url_capa')
-        .not('album', 'is', null) // Só álbuns com nome
-        .order('views', { ascending: false }) // Ordena por views (mais populares)
-        .limit(50); // Busca mais para depois filtrar únicos
+        .not('album', 'is', null)
+        .order('views', { ascending: false })
+        .limit(50);
 
       if (error) {
         console.error('Erro ao buscar álbuns:', error);
-        return [];
+        return albunsDecorativos; // Retorna álbuns decorativos em caso de erro
       }
 
-      // Filtra álbuns únicos (não repete mesmo artista + mesmo álbum)
       const albunsUnicos: Album[] = [];
       const albunsVistos = new Set<string>();
 
@@ -189,11 +204,11 @@ export default function Homepage() {
         }
       });
 
-      return albunsUnicos.slice(0, 20); // Retorna no máximo 20 álbuns únicos
+      return albunsUnicos.slice(0, 20);
 
     } catch (error) {
       console.error('Erro na busca de álbuns:', error);
-      return [];
+      return albunsDecorativos; 
     }
   };
 
@@ -211,40 +226,67 @@ export default function Homepage() {
       try {
         setLoading(true);
 
-        // Busca dados em paralelo
         const [albunsData, usuarioRes, playlistsRes] = await Promise.all([
           buscarAlbunsUnicos(),
           fetch(`${API_BASE_URL}/api/usuarios/me`),
           fetch(`${API_BASE_URL}/api/me/playlists`),
         ]);
 
-        // Define os álbuns do Supabase
         setAlbuns(albunsData);
 
-        // Usuário e playlists (mantém da API por enquanto)
         if (usuarioRes.ok) {
           const usuarioData: Usuario = await usuarioRes.json();
           setUsuario(usuarioData);
+        } else {
+          setUsuario({
+            id: '1',
+            nome: 'Maria',
+            fotoUrl: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop'
+          });
         }
 
         if (playlistsRes.ok) {
           const playlistsData: Playlist[] = await playlistsRes.json();
           setPlaylists(playlistsData);
+        } else {
+          setPlaylists([
+            {
+              id: '1',
+              titulo: 'Favoritas',
+              capaUrl: 'https://images.unsplash.com/photo-1571974599782-87624638275f?w=150&h=150&fit=crop'
+            },
+            {
+              id: '2',
+              titulo: 'Rock Classics',
+              capaUrl: 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=150&h=150&fit=crop'
+            }
+          ]);
         }
 
       } catch (err) {
         console.error('Erro ao buscar dados:', err);
         
-        // Fallback em caso de erro
-        try {
-          const fallbackRes = await fetch(`${API_BASE_URL}/api/recomendacoes`);
-          if (fallbackRes.ok) {
-            const fallbackData: Album[] = await fallbackRes.json();
-            setAlbuns(fallbackData);
+        // Fallback com dados mock
+        setUsuario({
+          id: '1',
+          nome: 'Maria',
+          fotoUrl: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop'
+        });
+        
+        setPlaylists([
+          {
+            id: '1',
+            titulo: 'Favoritas',
+            capaUrl: 'https://images.unsplash.com/photo-1571974599782-87624638275f?w=150&h=150&fit=crop'
+          },
+          {
+            id: '2',
+            titulo: 'Rock Classics',
+            capaUrl: 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=150&h=150&fit=crop'
           }
-        } catch (fallbackError) {
-          console.error('Erro no fallback:', fallbackError);
-        }
+        ]);
+        
+        setAlbuns(albunsDecorativos);
       } finally {
         setLoading(false);
       }
