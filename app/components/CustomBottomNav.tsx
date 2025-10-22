@@ -16,7 +16,7 @@ export default function CustomBottomNav() {
         <Feather 
           name="home" 
           size={24} 
-          color={pathname === '/(tabs)/homepage' ? '#8b0000' : '#999'} 
+          color={pathname === '/(tabs)/homepage' ? '#4d0000ff' : '#999'} 
         />
       </TouchableOpacity>
 
@@ -27,7 +27,7 @@ export default function CustomBottomNav() {
         <Feather 
           name="search" 
           size={24} 
-          color={pathname === '/(tabs)/busca' ? '#8b0000' : '#999'} 
+          color={pathname === '/(tabs)/busca' ? '#560000ff' : '#c4c4c4ff'} 
         />
       </TouchableOpacity>
 
@@ -38,7 +38,7 @@ export default function CustomBottomNav() {
         <Feather 
           name="user" 
           size={24} 
-          color={pathname === '/(tabs)/perfil' ? '#8b0000' : '#999'} 
+          color={pathname === '/(tabs)/perfil' ? '#8b0000' : '#ffffffff'} 
         />
       </TouchableOpacity>
     </View>
@@ -50,10 +50,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: '#790000ff',
     paddingVertical: 15,
     borderTopWidth: 0.5,
-    borderTopColor: '#e5e5e5',
+    borderTopColor: '#470000ff',
   },
   navItem: {
     padding: 10,

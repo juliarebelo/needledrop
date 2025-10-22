@@ -2,16 +2,17 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    FlatList,
-    Image,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  FlatList,
+  Image,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { supabase } from '../../services/supabase';
+import CustomBottomNav from '../components/CustomBottomNav';
 
 interface Review {
   id: string;
@@ -47,23 +48,19 @@ export default function PerfilScreen() {
       setUser(session?.user || null);
 
       if (session?.user) {
-        const { data: reviewsData, error: reviewsError } = await supabase
+        const { data: reviewsData } = await supabase
           .from('resenhas')
           .select('*')
           .eq('user_id', session.user.id)
           .order('created_at', { ascending: false })
           .limit(3);
 
-        if (reviewsError) console.error('Erro ao buscar resenhas:', reviewsError);
-
-        const { data: favoritesData, error: favoritesError } = await supabase
+        const { data: favoritesData } = await supabase
           .from('resenhas')
           .select('id, album_name, artist, cover_url')
           .eq('user_id', session.user.id)
           .order('rating', { ascending: false })
           .limit(4);
-
-        if (favoritesError) console.error('Erro ao buscar favoritos:', favoritesError);
 
         setReviews(reviewsData || []);
         setFavoriteAlbums(favoritesData || []);
@@ -79,13 +76,15 @@ export default function PerfilScreen() {
     return (
       <View style={styles.starsContainer}>
         {[1, 2, 3, 4, 5].map((star) => (
-          <Feather
-            key={star}
-            name="star"
-            size={16}
-            color={star <= rating ? '#FFD700' : '#ddd'}
-            style={styles.star}
-          />
+          <Text 
+            key={star} 
+            style={[
+              styles.star,
+              star <= rating ? styles.starFilled : styles.starEmpty
+            ]}
+          >
+            ★
+          </Text>
         ))}
       </View>
     );
@@ -110,40 +109,33 @@ export default function PerfilScreen() {
     <View style={styles.reviewCard}>
       {renderStars(item.rating)}
       <Text style={styles.reviewText} numberOfLines={2}>
-        {item.review_text}
+        {item.review_text || 'Remarks'}
       </Text>
     </View>
   );
 
   const getUserName = () => {
-    if (user?.user_metadata?.name) {
-      return user.user_metadata.name;
-    }
-    if (user?.email) {
-      return user.email.split('@')[0];
-    }
-    return 'Usuário';
+    return user?.user_metadata?.name || user?.email?.split('@')[0] || 'Billy';
   };
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="dark-content" />
       
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Header do Perfil */}
         <View style={styles.profileHeader}>
           <View style={styles.avatarContainer}>
-            <Feather name="user" size={60} color="#fff" />
+            <Feather name="user" size={40} color="#fff" />
           </View>
           <Text style={styles.userName}>{getUserName()}</Text>
-          <Text style={styles.userEmail}>{user?.email || 'Não logado'}</Text>
+          <Text style={styles.userEmail}>{user?.email || 'monobolasclub@gmail.com'}</Text>
         </View>
 
         {/* Seção de Álbuns Favoritos */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Álbuns Favoritos</Text>
-            <TouchableOpacity onPress={() => router.push('../minhas-resenhas')}>
+            <Text style={styles.sectionTitle}>Albuns favorites</Text>
+            <TouchableOpacity onPress={() => router.push('/minhas-resenhas')}>
               <Text style={styles.seeAllText}>Ver todos</Text>
             </TouchableOpacity>
           </View>
@@ -159,17 +151,16 @@ export default function PerfilScreen() {
             />
           ) : (
             <View style={styles.emptySection}>
-              <Feather name="music" size={40} color="#666" />
-              <Text style={styles.emptyText}>Nenhum álbum favorito</Text>
+              <Text style={styles.albumName}>EXATAMENTE AGORA</Text>
+              <Text style={styles.albumArtist}>Bruno & Marrone</Text>
             </View>
           )}
         </View>
 
-        {/* Seção de Avaliações Recentes */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Avaliações recentes</Text>
-            <TouchableOpacity onPress={() => router.push('../minhas-resenhas')}>
+            <TouchableOpacity onPress={() => router.push('/minhas-resenhas')}>
               <Text style={styles.seeAllText}>Ver todas</Text>
             </TouchableOpacity>
           </View>
@@ -183,19 +174,17 @@ export default function PerfilScreen() {
               contentContainerStyle={styles.reviewsList}
             />
           ) : (
-            <View style={styles.emptySection}>
-              <Feather name="file-text" size={40} color="#666" />
-              <Text style={styles.emptyText}>Nenhuma avaliação</Text>
-              <TouchableOpacity 
-                style={styles.createReviewButton}
-                onPress={() => router.push('/(tabs)/busca')}
-              >
-                <Text style={styles.createReviewButtonText}>Criar primeira resenha</Text>
-              </TouchableOpacity>
+            <View style={styles.reviewsList}>
+              <View style={styles.reviewCard}>
+                {renderStars(5)}
+                <Text style={styles.reviewText}>odie!!!!</Text>
+              </View>
             </View>
           )}
         </View>
       </ScrollView>
+
+      <CustomBottomNav />
     </View>
   );
 }
@@ -203,7 +192,7 @@ export default function PerfilScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#300505',
+    backgroundColor: '#3c0606ff',
   },
   scrollView: {
     flex: 1,
@@ -212,31 +201,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 40,
     paddingHorizontal: 20,
-    backgroundColor: '#4a1e1e',
+    backgroundColor: '#290707ff',
   },
   avatarContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#8b0000',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#5b1a1aff',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 15,
-    borderWidth: 3,
-    borderColor: '#fff',
   },
   userName: {
-    color: '#fff',
-    fontSize: 28,
+    color: '#ffffffff',
+    fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 5,
   },
   userEmail: {
-    color: '#ccc',
+    color: '#d6d6d6ff',
     fontSize: 16,
   },
   section: {
     padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#510000ff',
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -245,12 +234,12 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   sectionTitle: {
-    color: '#fff',
-    fontSize: 20,
+    color: '#ffffffff',
+    fontSize: 18,
     fontWeight: 'bold',
   },
   seeAllText: {
-    color: '#8b0000',
+    color: '#ed0000ff',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -267,16 +256,17 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 8,
     marginBottom: 8,
+    backgroundColor: '#232323ff',
   },
   albumName: {
-    color: '#fff',
+    color: '#ffffffff',
     fontSize: 12,
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 2,
   },
   albumArtist: {
-    color: '#ccc',
+    color: '#d8d8d8ff',
     fontSize: 10,
     textAlign: 'center',
   },
@@ -284,7 +274,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   reviewCard: {
-    backgroundColor: '#4a1e1e',
+    backgroundColor: '#682626ff',
     padding: 15,
     borderRadius: 8,
     borderLeftWidth: 4,
@@ -295,34 +285,23 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   star: {
+    fontSize: 16,
     marginRight: 2,
   },
+  starFilled: {
+    color: '#FFD700',
+  },
+  starEmpty: {
+    color: '#ddd',
+  },
   reviewText: {
-    color: '#fff',
+    color: '#ffffffff',
     fontSize: 14,
     lineHeight: 18,
   },
   emptySection: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 30,
-  },
-  emptyText: {
-    color: '#666',
-    fontSize: 16,
-    marginTop: 10,
-    textAlign: 'center',
-  },
-  createReviewButton: {
-    backgroundColor: '#8b0000',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-    marginTop: 10,
-  },
-  createReviewButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: 'bold',
+    paddingVertical: 20,
   },
 });
