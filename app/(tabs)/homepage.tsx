@@ -109,7 +109,6 @@ export default function Homepage() {
   const [modalVisible, setModalVisible] = useState(false);
   const [novaPlaylistTitulo, setNovaPlaylistTitulo] = useState('');
 
-  // FUNÇÃO EXCLUIR PLAYLIST (sem Alert)
   const excluirPlaylist = (playlistId: string) => {
     setPlaylists(playlists.filter(playlist => playlist.id !== playlistId));
   };
@@ -172,7 +171,6 @@ export default function Homepage() {
     }
   ];
 
-  // BUSCAR ÁLBUNS ÚNICOS DO SUPABASE
   const buscarAlbunsUnicos = async (): Promise<Album[]> => {
     try {
       const { data: musicasData, error } = await supabase
@@ -184,7 +182,7 @@ export default function Homepage() {
 
       if (error) {
         console.error('Erro ao buscar álbuns:', error);
-        return albunsDecorativos; // Retorna álbuns decorativos em caso de erro
+        return albunsDecorativos;
       }
 
       const albunsUnicos: Album[] = [];
@@ -251,11 +249,6 @@ export default function Homepage() {
         } else {
           setPlaylists([
             {
-              id: '1',
-              titulo: 'Favoritas',
-              capaUrl: 'https://images.unsplash.com/photo-1571974599782-87624638275f?w=150&h=150&fit=crop'
-            },
-            {
               id: '2',
               titulo: 'Rock Classics',
               capaUrl: 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=150&h=150&fit=crop'
@@ -266,7 +259,6 @@ export default function Homepage() {
       } catch (err) {
         console.error('Erro ao buscar dados:', err);
         
-        // Fallback com dados mock
         setUsuario({
           id: '1',
           nome: 'Maria',
@@ -274,11 +266,6 @@ export default function Homepage() {
         });
         
         setPlaylists([
-          {
-            id: '1',
-            titulo: 'Favoritas',
-            capaUrl: 'https://images.unsplash.com/photo-1571974599782-87624638275f?w=150&h=150&fit=crop'
-          },
           {
             id: '2',
             titulo: 'Rock Classics',

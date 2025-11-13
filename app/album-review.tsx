@@ -15,7 +15,6 @@ import {
 } from 'react-native';
 import { supabase } from '../services/supabase';
 
-// Componente de navegação inferior
 const CustomBottomNav = () => {
   const router = useRouter(); 
   return (
@@ -45,26 +44,22 @@ export default function AlbumReview() {
   const [isEditing, setIsEditing] = useState(false);
   const [user, setUser] = useState<any>(null);
 
-  // Decodifica os parâmetros
   const albumName = params.albumName ? decodeURIComponent(params.albumName as string) : 'Álbum Desconhecido';
   const artist = params.artist ? decodeURIComponent(params.artist as string) : 'Artista Desconhecido';
   const year = parseInt(params.year as string) || 2020;
   const trackCount = parseInt(params.trackCount as string) || 12;
   const coverUrl = params.coverUrl ? decodeURIComponent(params.coverUrl as string) : '';
 
-  // Verifica o usuário logado e resenhas existentes
   useEffect(() => {
     checkUserAndReview();
   }, [albumName, artist]);
 
   const checkUserAndReview = async () => {
     try {
-      // Pega a sessão atual
       const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user || null);
 
       if (session?.user) {
-        // Busca resenha existente
         const { data, error } = await supabase
           .from('resenhas')
           .select('*')
@@ -100,13 +95,11 @@ export default function AlbumReview() {
 
   const handleSubmitReview = async () => {
     if (!user) {
-      // Redireciona direto para login sem pop-up
       router.push('/login');
       return;
     }
 
     if (!rating || !review.trim()) {
-      // Apenas não faz nada se não tiver nota ou review
       return;
     }
 
@@ -114,7 +107,6 @@ export default function AlbumReview() {
     
     try {
       if (isEditing && existingReview?.id) {
-        // Atualizar resenha existente
         const { error } = await supabase
           .from('resenhas')
           .update({
@@ -126,10 +118,8 @@ export default function AlbumReview() {
 
         if (error) throw error;
         
-        // Volta para tela anterior sem pop-up de sucesso
         router.back();
       } else {
-        // Criar nova resenha
         const { error } = await supabase
           .from('resenhas')
           .insert({
@@ -145,12 +135,10 @@ export default function AlbumReview() {
 
         if (error) throw error;
         
-        // Volta para tela anterior sem pop-up de sucesso
         router.back();
       }
     } catch (error: any) {
       console.error('Erro ao salvar resenha:', error);
-      // Não mostra pop-up de erro
     } finally {
       setIsSubmitting(false);
     }
@@ -159,7 +147,6 @@ export default function AlbumReview() {
   const handleDeleteReview = async () => {
     if (!existingReview?.id || !user) return;
 
-    // MANTÉM APENAS ESTE POP-UP (confirmação de exclusão)
     Alert.alert(
       'Confirmar exclusão',
       'Tem certeza que deseja excluir esta resenha?',
@@ -177,11 +164,9 @@ export default function AlbumReview() {
 
               if (error) throw error;
 
-              // Volta para tela anterior sem pop-up de sucesso
               router.back();
             } catch (error) {
               console.error('Erro ao excluir resenha:', error);
-              // Não mostra pop-up de erro
             }
           }
         }
