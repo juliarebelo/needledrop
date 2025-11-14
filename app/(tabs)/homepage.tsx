@@ -30,8 +30,6 @@ interface Album {
   capaUrl: string;
 }
 
-const API_BASE_URL = 'http://192.168.0.5:3000';
-
 const Header = ({ usuario }: { usuario: Usuario | null }) => {
   const router = useRouter(); 
 
@@ -137,7 +135,6 @@ export default function Homepage() {
     );
   };
 
-  // ÁLBUNS DECORATIVOS PARA ENFEITAR A TELA
   const albunsDecorativos: Album[] = [
     {
       id: '1',
@@ -172,41 +169,49 @@ export default function Homepage() {
   ];
 
   const buscarAlbunsUnicos = async (): Promise<Album[]> => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6000);
     try {
       const { data: musicasData, error } = await supabase
         .from('musicas')
-        .select('id, artist, album, url_capa')
+        .select('id, artist, album, url_capa, views')
         .not('album', 'is', null)
         .order('views', { ascending: false })
-        .limit(50);
+        .limit(50)
+        .abortSignal(controller.signal);
 
-      if (error) {
-        console.error('Erro ao buscar álbuns:', error);
+      clearTimeout(timeout);
+
+      if (error || !musicasData) {
+        console.warn('[Albuns] fallback decorativo. Erro:', error?.message);
         return albunsDecorativos;
       }
 
       const albunsUnicos: Album[] = [];
-      const albunsVistos = new Set<string>();
+      const vistos = new Set<string>();
 
-      musicasData.forEach(musica => {
-        const chaveUnica = `${musica.artist.toLowerCase()}-${musica.album.toLowerCase()}`;
-        
-        if (!albunsVistos.has(chaveUnica)) {
-          albunsVistos.add(chaveUnica);
-          albunsUnicos.push({
-            id: musica.id,
-            titulo: musica.album,
-            artista: musica.artist,
-            capaUrl: musica.url_capa || 'https://via.placeholder.com/150'
-          });
-        }
-      });
-
-      return albunsUnicos.slice(0, 20);
-
-    } catch (error) {
-      console.error('Erro na busca de álbuns:', error);
-      return albunsDecorativos; 
+      for (const musica of musicasData) {
+        if (!musica.artist || !musica.album) continue;
+        const chave = `${musica.artist.toLowerCase()}-${musica.album.toLowerCase()}`;
+        if (vistos.has(chave)) continue;
+        vistos.add(chave);
+        albunsUnicos.push({
+          id: musica.id,
+          titulo: musica.album,
+          artista: musica.artist,
+          capaUrl: musica.url_capa || 'https://via.placeholder.com/150'
+        });
+        if (albunsUnicos.length >= 20) break;
+      }
+      return albunsUnicos;
+    } catch (error: any) {
+      clearTimeout(timeout);
+      if (error?.name === 'AbortError') {
+        console.warn('[Albuns] Timeout – usando dados decorativos');
+      } else {
+        console.warn('[Albuns] Erro inesperado – usando dados decorativos', error);
+      }
+      return albunsDecorativos;
     }
   };
 
@@ -220,66 +225,29 @@ export default function Homepage() {
   );
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-
-        const [albunsData, usuarioRes, playlistsRes] = await Promise.all([
-          buscarAlbunsUnicos(),
-          fetch(`${API_BASE_URL}/api/usuarios/me`),
-          fetch(`${API_BASE_URL}/api/me/playlists`),
-        ]);
-
-        setAlbuns(albunsData);
-
-        if (usuarioRes.ok) {
-          const usuarioData: Usuario = await usuarioRes.json();
-          setUsuario(usuarioData);
-        } else {
-          setUsuario({
-            id: '1',
-            nome: 'Maria',
-            fotoUrl: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop'
-          });
-        }
-
-        if (playlistsRes.ok) {
-          const playlistsData: Playlist[] = await playlistsRes.json();
-          setPlaylists(playlistsData);
-        } else {
-          setPlaylists([
-            {
-              id: '2',
-              titulo: 'Rock Classics',
-              capaUrl: 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=150&h=150&fit=crop'
-            }
-          ]);
-        }
-
-      } catch (err) {
-        console.error('Erro ao buscar dados:', err);
-        
-        setUsuario({
-          id: '1',
-          nome: 'Maria',
-          fotoUrl: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop'
-        });
-        
-        setPlaylists([
-          {
-            id: '2',
-            titulo: 'Rock Classics',
-            capaUrl: 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=150&h=150&fit=crop'
-          }
-        ]);
-        
-        setAlbuns(albunsDecorativos);
-      } finally {
-        setLoading(false);
+    setAlbuns(albunsDecorativos);
+    setUsuario({
+      id: '1',
+      nome: 'Maria',
+      fotoUrl: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop'
+    });
+    setPlaylists([
+      {
+        id: '2',
+        titulo: 'Rock Classics',
+        capaUrl: 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=150&h=150&fit=crop'
       }
-    };
+    ]);
 
-    fetchData();
+    let ativo = true;
+    const carregar = async () => {
+      setLoading(true);
+      const result = await buscarAlbunsUnicos();
+      if (ativo) setAlbuns(result);
+      setLoading(false);
+    };
+    carregar();
+    return () => { ativo = false; };
   }, []);
 
   if (loading) {
