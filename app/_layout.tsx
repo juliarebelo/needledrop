@@ -12,7 +12,6 @@ export default function RootLayout() {
         <Stack.Screen name="cadastro" />
         <Stack.Screen name="album-review" />
         <Stack.Screen name="minhas-resenhas" />
-        {/* Adicione outras screens aqui */}
       </Stack>
     </>
   );
