@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -20,11 +20,10 @@ interface Musica {
   artist: string;
   album: string | null;
   url_capa: string | null;
-  url_spotify: string | null;
   year?: number;
 }
 
-const AlbumResultItem = ({ item, onPress }: { item: Musica; onPress: (album: Musica) => void }) => (
+const AlbumResultItem = React.memo(({ item, onPress }: { item: Musica; onPress: (album: Musica) => void }) => (
   <TouchableOpacity 
     style={styles.albumItem} 
     onPress={() => onPress(item)}
@@ -38,13 +37,14 @@ const AlbumResultItem = ({ item, onPress }: { item: Musica; onPress: (album: Mus
       <Text style={styles.albumArtist}>{item.artist}</Text>
     </View>
   </TouchableOpacity>
-);
+));
 
-export default function SearchScreen() {
+export default function BuscaScreen() {
   const router = useRouter();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Musica[]>([]);
   const [loading, setLoading] = useState(false);
+  const debounceTimer = useRef<number | undefined>(undefined);
 
   const handleAlbumPress = (album: Musica) => {
   router.push({
@@ -60,36 +60,80 @@ export default function SearchScreen() {
 };
 
   useEffect(() => {
-    const searchInSupabase = async () => {
-      if (query.length > 0) {
-        setLoading(true);
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
 
-        try {
-          const { data: musicasData, error } = await supabase
-            .from('musicas')
-            .select('id, title, artist, album, url_capa, url_spotify')
-            .or(`title.ilike.%${query}%,artist.ilike.%${query}%,album.ilike.%${query}%`)
-            .limit(20);
+    if (query.length === 0) {
+      setResults([]);
+      return;
+    }
 
-          if (error) {
-            console.error('Erro na busca:', error);
-            setResults([]);
-          } else {
-            setResults(musicasData || []);
-          }
-        } catch (error) {
-          console.error('Erro na busca:', error);
-          setResults([]);
-        } finally {
-          setLoading(false);
-        }
-      } else {
-        setResults([]);
+    if (query.length < 2) {
+      return;
+    }
+
+    debounceTimer.current = setTimeout(() => {
+      searchInSupabase();
+    }, 400) as unknown as number;
+
+    return () => {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
       }
     };
-
-    searchInSupabase();
   }, [query]);
+
+  const searchInSupabase = async () => {
+    setLoading(true);
+
+    try {
+      const searchTerm = query.toLowerCase().trim();
+      const { data: musicasData, error } = await supabase
+        .from('musicas')
+        .select('id, title, artist, album, url_capa')
+        .or(`title.ilike.%${searchTerm}%,artist.ilike.%${searchTerm}%,album.ilike.%${searchTerm}%`)
+        .not('url_capa', 'is', null)
+        .limit(50);
+
+      if (error) {
+        console.error('Erro na busca:', error);
+        setResults([]);
+      } else {
+        const filtered = (musicasData || [])
+          .map(item => {
+            let score = 0;
+            const title = (item.title || '').toLowerCase();
+            const artist = (item.artist || '').toLowerCase();
+            const album = (item.album || '').toLowerCase();
+            
+            if (artist === searchTerm) score += 100;
+            if (album === searchTerm) score += 100;
+            if (title === searchTerm) score += 50;
+            
+            if (artist.startsWith(searchTerm)) score += 50;
+            if (album.startsWith(searchTerm)) score += 50;
+            if (title.startsWith(searchTerm)) score += 25;
+            
+            if (artist.includes(searchTerm)) score += 10;
+            if (album.includes(searchTerm)) score += 10;
+            if (title.includes(searchTerm)) score += 5;
+            
+            return { ...item, score };
+          })
+          .filter(item => item.score > 0)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 5);
+          
+        setResults(filtered);
+      }
+    } catch (error) {
+      console.error('Erro na busca:', error);
+      setResults([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <View style={styles.container}>

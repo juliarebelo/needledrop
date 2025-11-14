@@ -1,9 +1,15 @@
 import { Feather } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
+import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   FlatList, Image,
+  Modal,
+  RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -34,19 +40,87 @@ export default function PlaylistDetailScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Musica[]>([]);
   const [showSearch, setShowSearch] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    // Mock data temporário - depois substitua por busca real no Supabase
-    const mockPlaylist: Playlist = {
-      id: id as string,
-      titulo: 'Minha Playlist',
-      capaUrl: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=150&h=150&fit=crop',
-      musicas: []
-    };
-    setPlaylist(mockPlaylist);
+  useFocusEffect(
+    useCallback(() => {
+      loadPlaylist();
+    }, [id])
+  );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadPlaylist();
+    setRefreshing(false);
   }, [id]);
 
-  // Buscar músicas no Supabase
+  useEffect(() => {
+    loadPlaylist();
+  }, [id]);
+
+  const loadPlaylist = async () => {
+    try {
+      setLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.user) {
+        Alert.alert('Erro', 'Você precisa estar logado');
+        router.back();
+        return;
+      }
+
+      const { data: playlistData, error: playlistError } = await supabase
+        .from('playlists')
+        .select('id, titulo, capa_url')
+        .eq('id', id)
+        .eq('user_id', session.user.id)
+        .single();
+
+      if (playlistError) {
+        console.error('Erro ao buscar playlist:', playlistError);
+        Alert.alert('Erro', 'Playlist não encontrada');
+        router.back();
+        return;
+      }
+
+      const { data: musicasData, error: musicasError } = await supabase
+        .from('playlist_musicas')
+        .select(`
+          song_id,
+          musicas (id, title, artist, album, url_capa)
+        `)
+        .eq('playlist_id', id)
+        .order('position', { ascending: true });
+
+      if (musicasError) {
+        console.error('Erro ao buscar músicas:', musicasError);
+      }
+
+      const musicas = (musicasData || []).map((item: any) => ({
+        id: item.musicas.id,
+        title: item.musicas.title,
+        artist: item.musicas.artist,
+        album: item.musicas.album,
+        url_capa: item.musicas.url_capa
+      }));
+
+      setPlaylist({
+        id: playlistData.id,
+        titulo: playlistData.titulo,
+        capaUrl: playlistData.capa_url || 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=150&h=150&fit=crop',
+        musicas: musicas
+      });
+    } catch (error) {
+      console.error('Erro ao carregar playlist:', error);
+      Alert.alert('Erro', 'Não foi possível carregar a playlist');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     const buscarMusicas = async () => {
       if (searchQuery.length > 0) {
@@ -55,7 +129,7 @@ export default function PlaylistDetailScreen() {
             .from('musicas')
             .select('id, title, artist, album, url_capa')
             .or(`title.ilike.%${searchQuery}%,artist.ilike.%${searchQuery}%,album.ilike.%${searchQuery}%`)
-            .limit(10);
+            .limit(5);
 
           if (error) {
             console.error('Erro na busca:', error);
@@ -75,23 +149,39 @@ export default function PlaylistDetailScreen() {
     buscarMusicas();
   }, [searchQuery]);
 
-  // Adicionar música à playlist
-  const adicionarMusica = (musica: Musica) => {
+  const adicionarMusica = async (musica: Musica) => {
     if (playlist && !playlist.musicas.some(m => m.id === musica.id)) {
-      const updatedPlaylist = {
-        ...playlist,
-        musicas: [...playlist.musicas, musica]
-      };
-      setPlaylist(updatedPlaylist);
-      setSearchQuery('');
-      setShowSearch(false);
-      Alert.alert('Sucesso!', `${musica.album || musica.title} adicionado à playlist`);
+      try {
+        const { error } = await supabase
+          .from('playlist_musicas')
+          .insert({
+            playlist_id: id,
+            song_id: musica.id,
+            position: playlist.musicas.length
+          });
+
+        if (error) {
+          console.error('Erro detalhado:', error);
+          throw error;
+        }
+
+        const updatedPlaylist = {
+          ...playlist,
+          musicas: [...playlist.musicas, musica]
+        };
+        setPlaylist(updatedPlaylist);
+        setSearchQuery('');
+        setShowSearch(false);
+        Alert.alert('Sucesso!', `${musica.album || musica.title} adicionado à playlist`);
+      } catch (error: any) {
+        console.error('Erro ao adicionar música:', error);
+        Alert.alert('Erro', `Não foi possível adicionar a música: ${error?.message || 'Erro desconhecido'}`);
+      }
     } else {
       Alert.alert('Aviso', 'Esta música já está na playlist');
     }
   };
 
-  // Remover música da playlist
   const removerMusica = (musicaId: string) => {
     if (playlist) {
       Alert.alert(
@@ -102,12 +192,25 @@ export default function PlaylistDetailScreen() {
           {
             text: 'Remover',
             style: 'destructive',
-            onPress: () => {
-              const updatedPlaylist = {
-                ...playlist,
-                musicas: playlist.musicas.filter(musica => musica.id !== musicaId)
-              };
-              setPlaylist(updatedPlaylist);
+            onPress: async () => {
+              try {
+                const { error } = await supabase
+                  .from('playlist_musicas')
+                  .delete()
+                  .eq('playlist_id', id)
+                  .eq('song_id', musicaId);
+
+                if (error) throw error;
+
+                const updatedPlaylist = {
+                  ...playlist,
+                  musicas: playlist.musicas.filter(musica => musica.id !== musicaId)
+                };
+                setPlaylist(updatedPlaylist);
+              } catch (error) {
+                console.error('Erro ao remover música:', error);
+                Alert.alert('Erro', 'Não foi possível remover a música');
+              }
             }
           }
         ]
@@ -115,9 +218,102 @@ export default function PlaylistDetailScreen() {
     }
   };
 
-  if (!playlist) {
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permissão necessária', 'Precisamos de acesso às suas fotos!');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+    });
+
+    if (!result.canceled) {
+      uploadPlaylistCover(result.assets[0].uri);
+    }
+  };
+
+  const uploadPlaylistCover = async (uri: string) => {
+    try {
+      setUploading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        Alert.alert('Erro', 'Você precisa estar logado');
+        return;
+      }
+
+      const ext = uri.split('.').pop() || 'jpg';
+      const fileName = `playlist-${id}-${Date.now()}.${ext}`;
+      const filePath = `${session.user.id}/playlists/${fileName}`;
+
+      const response = await fetch(uri);
+      const arrayBuffer = await response.arrayBuffer();
+
+      const { data, error } = await supabase.storage
+        .from('playlist_covers')
+        .upload(filePath, arrayBuffer, {
+          contentType: `image/${ext}`,
+          cacheControl: '3600',
+          upsert: true
+        });
+
+      if (error) throw error;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('playlist_covers')
+        .getPublicUrl(filePath);
+
+      const { error: updateError } = await supabase
+        .from('playlists')
+        .update({ capa_url: publicUrl })
+        .eq('id', id);
+
+      if (updateError) throw updateError;
+
+      if (playlist) {
+        setPlaylist({ ...playlist, capaUrl: publicUrl });
+        setEditModalVisible(false);
+        Alert.alert('Sucesso', 'Capa da playlist atualizada!');
+      }
+    } catch (error: any) {
+      console.error('Erro ao fazer upload:', error);
+      Alert.alert('Erro', error?.message || 'Não foi possível fazer upload da imagem');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removePlaylistCover = () => {
+    Alert.alert(
+      'Remover capa',
+      'Deseja voltar para a capa padrão?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Remover',
+          style: 'destructive',
+          onPress: () => {
+            if (playlist) {
+              setPlaylist({
+                ...playlist,
+                capaUrl: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=150&h=150&fit=crop'
+              });
+              Alert.alert('Sucesso', 'Capa padrão restaurada!');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  if (loading || !playlist) {
     return (
       <View style={styles.container}>
+        <ActivityIndicator size="large" color="#FFFFFF" style={{ marginTop: 100 }} />
         <Text style={styles.loadingText}>Carregando...</Text>
       </View>
     );
@@ -125,7 +321,68 @@ export default function PlaylistDetailScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+      <Modal
+        visible={editModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Editar Capa da Playlist</Text>
+              <TouchableOpacity onPress={() => setEditModalVisible(false)}>
+                <Feather name="x" size={24} color="#fff" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.coverEditContainer}>
+              <TouchableOpacity 
+                onPress={pickImage}
+                disabled={uploading}
+                style={styles.coverTouchable}
+              >
+                {uploading ? (
+                  <ActivityIndicator size="large" color="#ed0000ff" />
+                ) : (
+                  <Image source={{ uri: playlist?.capaUrl }} style={styles.coverEditImage} />
+                )}
+              </TouchableOpacity>
+              
+              <View style={styles.coverActions}>
+                <TouchableOpacity onPress={pickImage} disabled={uploading}>
+                  <Text style={styles.changeCoverText}>Trocar capa</Text>
+                </TouchableOpacity>
+                <Text style={styles.coverSeparator}> • </Text>
+                <TouchableOpacity onPress={removePlaylistCover} disabled={uploading}>
+                  <Text style={styles.removeCoverText}>Usar padrão</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <TouchableOpacity 
+              style={[styles.closeButton, uploading && styles.closeButtonDisabled]}
+              onPress={() => setEditModalVisible(false)}
+              disabled={uploading}
+            >
+              <Text style={styles.closeButtonText}>Fechar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        nestedScrollEnabled={true}
+        refreshControl={
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh}
+            colors={['#FFFFFF']}
+            tintColor="#FFFFFF"
+          />
+        }
+      >
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
           <Feather name="arrow-left" size={24} color="#FFFFFF" />
@@ -136,9 +393,13 @@ export default function PlaylistDetailScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Capa da Playlist */}
       <View style={styles.playlistHeader}>
-        <Image source={{ uri: playlist.capaUrl }} style={styles.playlistCapa} />
+        <TouchableOpacity onPress={() => setEditModalVisible(true)} style={styles.capaContainer}>
+          <Image source={{ uri: playlist.capaUrl }} style={styles.playlistCapa} />
+          <View style={styles.editCoverOverlay}>
+            <Feather name="camera" size={24} color="#fff" />
+          </View>
+        </TouchableOpacity>
         <View style={styles.playlistInfo}>
           <Text style={styles.playlistTitulo}>{playlist.titulo}</Text>
           <Text style={styles.playlistCount}>
@@ -147,7 +408,6 @@ export default function PlaylistDetailScreen() {
         </View>
       </View>
 
-      {/* Barra de Pesquisa (aparece quando clicar em +) */}
       {showSearch && (
         <View style={styles.searchContainer}>
           <TextInput
@@ -164,13 +424,13 @@ export default function PlaylistDetailScreen() {
         </View>
       )}
 
-      {/* Resultados da Busca */}
       {showSearch && searchResults.length > 0 && (
         <View style={styles.searchResults}>
           <Text style={styles.sectionTitle}>Resultados da Busca</Text>
           <FlatList
             data={searchResults}
             keyExtractor={(item) => item.id}
+            scrollEnabled={false}
             renderItem={({ item }) => (
               <TouchableOpacity 
                 style={styles.searchResultItem}
@@ -188,7 +448,6 @@ export default function PlaylistDetailScreen() {
         </View>
       )}
 
-      {/* Músicas da Playlist */}
       <View style={styles.musicasSection}>
         <Text style={styles.sectionTitle}>
           Músicas na Playlist ({playlist.musicas.length})
@@ -206,6 +465,7 @@ export default function PlaylistDetailScreen() {
           <FlatList
             data={playlist.musicas}
             keyExtractor={(item) => item.id}
+            scrollEnabled={false}
             renderItem={({ item }) => (
               <TouchableOpacity style={styles.playlistMusicaItem}>
                 <Image source={{ uri: item.url_capa || 'https://via.placeholder.com/150' }} style={styles.albumImage} />
@@ -224,6 +484,7 @@ export default function PlaylistDetailScreen() {
           />
         )}
       </View>
+      </ScrollView>
     </View>
   );
 }
@@ -360,5 +621,83 @@ const styles = StyleSheet.create({
     fontSize: 18,
     textAlign: 'center',
     marginTop: 50,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '90%',
+    backgroundColor: '#290707ff',
+    borderRadius: 15,
+    padding: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  coverEditContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  coverTouchable: {
+    marginBottom: 10,
+  },
+  coverEditImage: {
+    width: 150,
+    height: 150,
+    borderRadius: 10,
+  },
+  coverActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  changeCoverText: {
+    color: '#ed0000ff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  coverSeparator: {
+    color: '#999',
+    marginHorizontal: 8,
+  },
+  removeCoverText: {
+    color: '#ff4444',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  closeButton: {
+    backgroundColor: '#ed0000ff',
+    padding: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  closeButtonDisabled: {
+    opacity: 0.5,
+  },
+  closeButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  capaContainer: {
+    position: 'relative',
+  },
+  editCoverOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    right: 15,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderRadius: 20,
+    padding: 8,
   },
 });

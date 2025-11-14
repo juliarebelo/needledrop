@@ -1,10 +1,12 @@
 import { Feather } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList, Image,
   Modal,
+  RefreshControl,
   ScrollView, StatusBar, StyleSheet, Text,
   TextInput,
   TouchableOpacity, View
@@ -31,7 +33,7 @@ interface Album {
   capaUrl: string;
 }
 
-const Header = ({ usuario }: { usuario: Usuario | null }) => {
+const Header = React.memo(({ usuario }: { usuario: Usuario | null }) => {
   const router = useRouter(); 
 
   return (
@@ -48,36 +50,45 @@ const Header = ({ usuario }: { usuario: Usuario | null }) => {
       </TouchableOpacity>
     </View>
   );
-};
+});
 
-const PlaylistCard = ({ item, onDelete, onPress }: { 
+const PlaylistCard = React.memo(({ item, onDelete, onPress }: { 
   item: Playlist; 
   onDelete: (id: string) => void;
   onPress: (id: string) => void;
 }) => (
   <View style={styles.playlistCardContainer}>
     <TouchableOpacity style={styles.playlistCard} onPress={() => onPress(item.id)}>
-      <Image source={{ uri: item.capaUrl || 'https://via.placeholder.com/150' }} style={styles.playlistImage} />
-      <Text style={styles.playlistTitle}>{item.titulo}</Text>
+      <Image 
+        source={{ uri: item.capaUrl || 'https://via.placeholder.com/150' }} 
+        style={styles.playlistImage}
+        resizeMode="cover"
+      />
+      <Text style={styles.playlistTitle} numberOfLines={2}>{item.titulo}</Text>
     </TouchableOpacity>
     <TouchableOpacity onPress={() => onDelete(item.id)} style={styles.deleteButton}>
       <Feather name="x" size={20} color="#FF0000" />
     </TouchableOpacity>
   </View>
-);
+));
 
-const AlbumListItem = ({ item, isFavorito, onToggleFavorito }: { item: Album; isFavorito: boolean; onToggleFavorito: (id: string) => void }) => (
+const AlbumListItem = React.memo(({ item, isFavorito, onToggleFavorito }: { item: Album; isFavorito: boolean; onToggleFavorito: (id: string) => void }) => (
   <TouchableOpacity style={styles.albumItem}>
-    <Image source={{ uri: item.capaUrl || 'https://via.placeholder.com/150' }} style={styles.albumImage} />
+    <Image 
+      source={{ uri: item.capaUrl || 'https://via.placeholder.com/150' }} 
+      style={styles.albumImage}
+      resizeMode="cover"
+      defaultSource={require('../../assets/images/icon.png')}
+    />
     <View style={styles.albumTextContainer}>
-      <Text style={styles.albumTitle}>{item.titulo}</Text>
-      <Text style={styles.albumArtist}>{item.artista}</Text>
+      <Text style={styles.albumTitle} numberOfLines={1}>{item.titulo}</Text>
+      <Text style={styles.albumArtist} numberOfLines={1}>{item.artista}</Text>
     </View>
     <TouchableOpacity onPress={() => onToggleFavorito(item.id)} style={styles.favoriteButton}>
       <Feather name={isFavorito ? "heart" : "heart"} size={24} color={isFavorito ? "#FF0000" : "#FFFFFF"} />
     </TouchableOpacity>
   </TouchableOpacity>
-);
+));
 
 export default function Homepage() {
   const router = useRouter();
@@ -85,48 +96,92 @@ export default function Homepage() {
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [albuns, setAlbuns] = useState<Album[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   
   const [favoritos, setFavoritos] = useState<string[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [novaPlaylistTitulo, setNovaPlaylistTitulo] = useState('');
 
-  const excluirPlaylist = (playlistId: string) => {
-    setPlaylists(playlists.filter(playlist => playlist.id !== playlistId));
-  };
+  const excluirPlaylist = useCallback(async (playlistId: string) => {
+    try {
+      const { error } = await supabase
+        .from('playlists')
+        .delete()
+        .eq('id', playlistId);
 
-  const criarPlaylist = () => {
+      if (error) {
+        console.error('Erro ao excluir playlist:', error);
+        return;
+      }
+
+      setPlaylists(prev => prev.filter(playlist => playlist.id !== playlistId));
+    } catch (error) {
+      console.error('Erro ao excluir playlist:', error);
+    }
+  }, []);
+
+  const criarPlaylist = useCallback(async () => {
     if (novaPlaylistTitulo.trim() === '') {
       return;
     }
 
-    const novaPlaylist: Playlist = {
-      id: Date.now().toString(),
-      titulo: novaPlaylistTitulo,
-      capaUrl: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=150&h=150&fit=crop'
-    };
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.user) {
+        alert('Você precisa estar logado para criar playlists');
+        return;
+      }
 
-    setPlaylists([...playlists, novaPlaylist]);
-    setNovaPlaylistTitulo('');
-    setModalVisible(false);
-  };
+      const { data, error } = await supabase
+        .from('playlists')
+        .insert({
+          user_id: session.user.id,
+          titulo: novaPlaylistTitulo,
+          capa_url: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=150&h=150&fit=crop'
+        })
+        .select()
+        .single();
 
-  const toggleFavorito = (albumId: string) => {
+      if (error) {
+        console.error('Erro ao criar playlist:', error);
+        alert('Não foi possível criar a playlist');
+        return;
+      }
+
+      const novaPlaylist: Playlist = {
+        id: data.id,
+        titulo: data.titulo,
+        capaUrl: data.capa_url || 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=150&h=150&fit=crop'
+      };
+
+      setPlaylists([...playlists, novaPlaylist]);
+      setNovaPlaylistTitulo('');
+      setModalVisible(false);
+    } catch (error) {
+      console.error('Erro ao criar playlist:', error);
+      alert('Erro ao criar playlist');
+    }
+  }, [playlists, novaPlaylistTitulo]);
+
+  const toggleFavorito = useCallback((albumId: string) => {
     setFavoritos(prev => 
       prev.includes(albumId) 
         ? prev.filter(id => id !== albumId)
         : [...prev, albumId]
     );
-  };
+  }, []);
 
   const buscarAlbunsUnicos = async (): Promise<Album[]> => {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 6000);
+    const timeout = setTimeout(() => controller.abort(), 4000);
     try {
       const { data: musicasData, error } = await supabase
         .from('musicas')
-        .select('id, artist, album, url_capa, views')
+        .select('id, artist, album, url_capa')
         .not('album', 'is', null)
-        .order('views', { ascending: false })
+        .not('artist', 'is', null)
+        .not('url_capa', 'is', null)
         .limit(50)
         .abortSignal(controller.signal);
 
@@ -141,7 +196,7 @@ export default function Homepage() {
       const vistos = new Set<string>();
 
       for (const musica of musicasData) {
-        if (!musica.artist || !musica.album) continue;
+        if (!musica.artist || !musica.album || !musica.url_capa) continue;
         const chave = `${musica.artist.toLowerCase()}-${musica.album.toLowerCase()}`;
         if (vistos.has(chave)) continue;
         vistos.add(chave);
@@ -149,9 +204,9 @@ export default function Homepage() {
           id: musica.id,
           titulo: musica.album,
           artista: musica.artist,
-          capaUrl: musica.url_capa || 'https://via.placeholder.com/150'
+          capaUrl: musica.url_capa
         });
-        if (albunsUnicos.length >= 20) break;
+        if (albunsUnicos.length >= 5) break;
       }
       return albunsUnicos;
     } catch (error: any) {
@@ -206,6 +261,60 @@ export default function Homepage() {
     return () => { ativo = false; };
   }, []);
 
+  // Recarregar playlists quando voltar para a tela
+  useFocusEffect(
+    useCallback(() => {
+      const carregarPlaylists = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session?.user) {
+          const { data: playlistsData, error } = await supabase
+            .from('playlists')
+            .select('id, titulo, capa_url')
+            .eq('user_id', session.user.id)
+            .order('created_at', { ascending: false });
+
+          if (!error && playlistsData) {
+            const playlistsFormatadas = playlistsData.map(p => ({
+              id: p.id,
+              titulo: p.titulo,
+              capaUrl: p.capa_url || 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=150&h=150&fit=crop'
+            }));
+            setPlaylists(playlistsFormatadas);
+          }
+        }
+      };
+
+      carregarPlaylists();
+    }, [])
+  );
+
+  // Função de refresh
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (session?.user) {
+      const { data: playlistsData, error } = await supabase
+        .from('playlists')
+        .select('id, titulo, capa_url')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false });
+
+      if (!error && playlistsData) {
+        const playlistsFormatadas = playlistsData.map(p => ({
+          id: p.id,
+          titulo: p.titulo,
+          capaUrl: p.capa_url || 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=150&h=150&fit=crop'
+        }));
+        setPlaylists(playlistsFormatadas);
+      }
+    }
+    
+    setRefreshing(false);
+  }, []);
+
   if (loading) {
     return <View style={styles.center}><ActivityIndicator size="large" color="#FFFFFF" /></View>;
   }
@@ -249,7 +358,18 @@ export default function Homepage() {
         </View>
       </Modal>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
+      <ScrollView 
+        contentContainerStyle={{ paddingBottom: 100 }}
+        refreshControl={
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh}
+            colors={['#FFFFFF']}
+            tintColor="#FFFFFF"
+          />
+        }
+        nestedScrollEnabled={true}
+      >
         <Header usuario={usuario} />
         
         <View style={styles.section}>
@@ -267,19 +387,35 @@ export default function Homepage() {
             horizontal
             showsHorizontalScrollIndicator={false}
             ListFooterComponent={<AddPlaylistCard />}
+            initialNumToRender={5}
+            maxToRenderPerBatch={3}
+            windowSize={3}
           />
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Álbuns em Destaque</Text>
-          {albuns.map(item => (
-            <AlbumListItem 
-              key={item.id} 
-              item={item} 
-              isFavorito={favoritos.includes(item.id)}
-              onToggleFavorito={toggleFavorito}
-            />
-          ))}
+          <FlatList
+            data={albuns}
+            renderItem={({ item }) => (
+              <AlbumListItem 
+                item={item} 
+                isFavorito={favoritos.includes(item.id)}
+                onToggleFavorito={toggleFavorito}
+              />
+            )}
+            keyExtractor={item => item.id}
+            scrollEnabled={false}
+            initialNumToRender={10}
+            maxToRenderPerBatch={5}
+            windowSize={5}
+            removeClippedSubviews={true}
+            getItemLayout={(data, index) => ({
+              length: 80,
+              offset: 80 * index,
+              index,
+            })}
+          />
         </View>
       </ScrollView>
 

@@ -1,15 +1,19 @@
 import { Feather } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    FlatList,
-    Image,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Animated,
+  FlatList,
+  Image,
+  RefreshControl,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { supabase } from '../../services/supabase';
 
@@ -24,11 +28,116 @@ interface Review {
   year: number;
 }
 
+interface ReviewItemProps {
+  item: Review;
+  onEdit: (review: Review) => void;
+  onDelete: (reviewId: string, albumName: string) => void;
+}
+
+const ReviewItem = ({ item, onEdit, onDelete }: ReviewItemProps) => {
+  const translateX = useRef(new Animated.Value(0)).current;
+  const [swiped, setSwiped] = useState(false);
+
+  const renderStars = (rating: number) => {
+    return (
+      <View style={styles.starsContainer}>
+        {[1, 2, 3, 4, 5].map((star) => (
+          <Feather
+            key={star}
+            name="star"
+            size={16}
+            color={star <= rating ? '#FFD700' : '#ddd'}
+          />
+        ))}
+      </View>
+    );
+  };
+
+  const onSwipeLeft = () => {
+    Animated.timing(translateX, {
+      toValue: -80,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+    setSwiped(true);
+  };
+
+  const onSwipeRight = () => {
+    Animated.timing(translateX, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+    setSwiped(false);
+  };
+
+  return (
+    <View style={styles.reviewItemContainer}>
+      <TouchableOpacity 
+        style={styles.deleteButton}
+        onPress={() => onDelete(item.id, item.album_name)}
+      >
+        <Feather name="trash-2" size={24} color="#fff" />
+      </TouchableOpacity>
+      
+      <Animated.View style={[styles.reviewItemWrapper, { transform: [{ translateX }] }]}>
+        <TouchableOpacity 
+          style={styles.reviewItem}
+          onPress={() => onEdit(item)}
+          onLongPress={onSwipeLeft}
+        >
+          <Image
+            source={{ uri: item.cover_url || 'https://via.placeholder.com/80' }}
+            style={styles.albumImage}
+          />
+          <View style={styles.reviewContent}>
+            <Text style={styles.albumName}>{item.album_name}</Text>
+            <Text style={styles.artist}>{item.artist}</Text>
+            {renderStars(item.rating)}
+            <Text style={styles.reviewText} numberOfLines={2}>
+              {item.review_text}
+            </Text>
+            <Text style={styles.reviewDate}>
+              {new Date(item.created_at).toLocaleDateString('pt-BR')}
+            </Text>
+          </View>
+          <View style={styles.actionsContainer}>
+            <Feather name="edit-2" size={20} color="#ccc" />
+            <TouchableOpacity 
+              style={styles.swipeHint}
+              onPress={swiped ? onSwipeRight : onSwipeLeft}
+            >
+              <Feather 
+                name={swiped ? "chevron-right" : "chevron-left"} 
+                size={20} 
+                color="#888" 
+              />
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
+    </View>
+  );
+};
+
 export default function MinhasResenhasScreen() {
   const router = useRouter();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [user, setUser] = useState<any>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchUserReviews();
+    }, [])
+  );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchUserReviews();
+    setRefreshing(false);
+  }, []);
 
   useEffect(() => {
     fetchUserReviews();
@@ -56,21 +165,6 @@ export default function MinhasResenhasScreen() {
     }
   };
 
-  const renderStars = (rating: number) => {
-    return (
-      <View style={styles.starsContainer}>
-        {[1, 2, 3, 4, 5].map((star) => (
-          <Feather
-            key={star}
-            name="star"
-            size={16}
-            color={star <= rating ? '#FFD700' : '#ddd'}
-          />
-        ))}
-      </View>
-    );
-  };
-
   const handleEditReview = (review: Review) => {
     router.push({
       pathname: '/album-review',
@@ -84,29 +178,38 @@ export default function MinhasResenhasScreen() {
     });
   };
 
-  const renderReviewItem = ({ item }: { item: Review }) => (
-    <TouchableOpacity 
-      style={styles.reviewItem}
-      onPress={() => handleEditReview(item)}
-    >
-      <Image
-        source={{ uri: item.cover_url || 'https://via.placeholder.com/80' }}
-        style={styles.albumImage}
-      />
-      <View style={styles.reviewContent}>
-        <Text style={styles.albumName}>{item.album_name}</Text>
-        <Text style={styles.artist}>{item.artist}</Text>
-        {renderStars(item.rating)}
-        <Text style={styles.reviewText} numberOfLines={2}>
-          {item.review_text}
-        </Text>
-        <Text style={styles.reviewDate}>
-          {new Date(item.created_at).toLocaleDateString('pt-BR')}
-        </Text>
-      </View>
-      <Feather name="edit-2" size={20} color="#ccc" />
-    </TouchableOpacity>
-  );
+  const handleDeleteReview = (reviewId: string, albumName: string) => {
+    Alert.alert(
+      'Remover Resenha',
+      `Tem certeza que deseja remover a resenha de "${albumName}"?`,
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel'
+        },
+        {
+          text: 'Remover',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error } = await supabase
+                .from('resenhas')
+                .delete()
+                .eq('id', reviewId);
+
+              if (error) throw error;
+
+              setReviews(reviews.filter(r => r.id !== reviewId));
+              Alert.alert('Sucesso', 'Resenha removida com sucesso');
+            } catch (error) {
+              console.error('Erro ao remover resenha:', error);
+              Alert.alert('Erro', 'Não foi possível remover a resenha');
+            }
+          }
+        }
+      ]
+    );
+  };
 
   if (loading) {
     return (
@@ -121,7 +224,6 @@ export default function MinhasResenhasScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
       
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity 
           onPress={() => router.back()} 
@@ -135,10 +237,24 @@ export default function MinhasResenhasScreen() {
 
       <FlatList
         data={reviews}
-        renderItem={renderReviewItem}
+        renderItem={({ item }) => (
+          <ReviewItem 
+            item={item} 
+            onEdit={handleEditReview}
+            onDelete={handleDeleteReview}
+          />
+        )}
         keyExtractor={(item) => item.id}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContainer}
+        refreshControl={
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh}
+            colors={['#FFFFFF']}
+            tintColor="#FFFFFF"
+          />
+        }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Feather name="file-text" size={60} color="#666" />
@@ -179,7 +295,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 15,
+    paddingTop: 53,
+    paddingBottom: 15,
     backgroundColor: '#4a1e1e',
   },
   backButton: {
@@ -196,13 +313,31 @@ const styles = StyleSheet.create({
   listContainer: {
     padding: 20,
   },
+  reviewItemContainer: {
+    marginBottom: 12,
+    position: 'relative',
+  },
+  reviewItemWrapper: {
+    width: '100%',
+  },
   reviewItem: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#4a1e1e',
     borderRadius: 8,
     padding: 15,
-    marginBottom: 12,
+  },
+  deleteButton: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: 80,
+    backgroundColor: '#dc2626',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderTopRightRadius: 8,
+    borderBottomRightRadius: 8,
   },
   albumImage: {
     width: 60,
@@ -212,6 +347,13 @@ const styles = StyleSheet.create({
   },
   reviewContent: {
     flex: 1,
+  },
+  actionsContainer: {
+    alignItems: 'center',
+    gap: 10,
+  },
+  swipeHint: {
+    marginTop: 5,
   },
   albumName: {
     color: '#fff',

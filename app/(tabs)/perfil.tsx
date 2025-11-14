@@ -1,13 +1,15 @@
 import { Feather } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   FlatList,
   Image,
   Modal,
+  RefreshControl,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -38,6 +40,7 @@ interface FavoriteAlbum {
 
 export default function PerfilScreen() {
   const router = useRouter();
+  const [refreshing, setRefreshing] = useState(false);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [favoriteAlbums, setFavoriteAlbums] = useState<FavoriteAlbum[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,6 +49,21 @@ export default function PerfilScreen() {
   const [newName, setNewName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [favoritesModalVisible, setFavoritesModalVisible] = useState(false);
+  const [allReviews, setAllReviews] = useState<Review[]>([]);
+  const [selectedFavorites, setSelectedFavorites] = useState<string[]>([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchUserData();
+    }, [])
+  );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchUserData();
+    setRefreshing(false);
+  }, []);
 
   useEffect(() => {
     fetchUserData();
@@ -62,6 +80,7 @@ export default function PerfilScreen() {
       }
 
       if (session?.user) {
+        // Buscar resenhas recentes
         const { data: reviewsData } = await supabase
           .from('resenhas')
           .select('*')
@@ -69,20 +88,86 @@ export default function PerfilScreen() {
           .order('created_at', { ascending: false })
           .limit(3);
 
-        const { data: favoritesData } = await supabase
+        // Buscar todas as resenhas para seleção de favoritos
+        const { data: allReviewsData } = await supabase
           .from('resenhas')
-          .select('id, album_name, artist, cover_url')
+          .select('*')
           .eq('user_id', session.user.id)
-          .order('rating', { ascending: false })
-          .limit(4);
+          .order('rating', { ascending: false });
+
+        // Buscar favoritos salvos do usuário
+        const savedFavorites = session.user.user_metadata?.favorite_albums || [];
+        
+        if (savedFavorites.length > 0 && allReviewsData) {
+          // Filtrar álbuns favoritos baseado nos IDs salvos
+          const favoritesData = allReviewsData
+            .filter(review => savedFavorites.includes(review.id))
+            .map(review => ({
+              id: review.id,
+              album_name: review.album_name,
+              artist: review.artist,
+              cover_url: review.cover_url
+            }));
+          setFavoriteAlbums(favoritesData);
+          setSelectedFavorites(savedFavorites);
+        } else if (allReviewsData && allReviewsData.length > 0) {
+          // Se não tem favoritos salvos, usar os 3 mais bem avaliados
+          const topRated = allReviewsData.slice(0, 3).map(review => ({
+            id: review.id,
+            album_name: review.album_name,
+            artist: review.artist,
+            cover_url: review.cover_url
+          }));
+          setFavoriteAlbums(topRated);
+        }
 
         setReviews(reviewsData || []);
-        setFavoriteAlbums(favoritesData || []);
+        setAllReviews(allReviewsData || []);
       }
     } catch (error) {
       console.error('Erro ao buscar dados do usuário:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const toggleFavorite = (reviewId: string) => {
+    setSelectedFavorites(prev => {
+      if (prev.includes(reviewId)) {
+        return prev.filter(id => id !== reviewId);
+      } else if (prev.length < 3) {
+        return [...prev, reviewId];
+      } else {
+        Alert.alert('Limite atingido', 'Você pode selecionar no máximo 3 álbuns favoritos');
+        return prev;
+      }
+    });
+  };
+
+  const saveFavorites = async () => {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        data: { favorite_albums: selectedFavorites }
+      });
+
+      if (error) throw error;
+
+      // Atualizar a lista de favoritos exibida
+      const favoritesData = allReviews
+        .filter(review => selectedFavorites.includes(review.id))
+        .map(review => ({
+          id: review.id,
+          album_name: review.album_name,
+          artist: review.artist,
+          cover_url: review.cover_url
+        }));
+      
+      setFavoriteAlbums(favoritesData);
+      setFavoritesModalVisible(false);
+      Alert.alert('Sucesso!', 'Álbuns favoritos atualizados');
+    } catch (error: any) {
+      console.error('Erro ao salvar favoritos:', error);
+      Alert.alert('Erro', 'Não foi possível salvar os favoritos');
     }
   };
 
@@ -166,13 +251,11 @@ export default function PerfilScreen() {
 
       console.log('Fazendo upload para:', filePath);
 
-      // Buscar a imagem como ArrayBuffer (funciona no React Native)
       const response = await fetch(uri);
       const arrayBuffer = await response.arrayBuffer();
 
       console.log('ArrayBuffer criado, tamanho:', arrayBuffer.byteLength);
 
-      // Upload usando ArrayBuffer
       const { data, error } = await supabase.storage
         .from('avatars')
         .upload(filePath, arrayBuffer, {
@@ -188,7 +271,6 @@ export default function PerfilScreen() {
 
       console.log('Upload bem-sucedido:', data);
 
-      // Obter URL pública
       const { data: { publicUrl } } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);
@@ -330,7 +412,18 @@ export default function PerfilScreen() {
         </View>
       </Modal>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.scrollView} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh}
+            colors={['#FFFFFF']}
+            tintColor="#FFFFFF"
+          />
+        }
+      >
         <View style={styles.profileHeaderContainer}>
           <View style={styles.profileHeaderBackground} />
           <View style={styles.profileHeader}>
@@ -355,23 +448,37 @@ export default function PerfilScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Álbuns Favoritos</Text>
-            <TouchableOpacity onPress={() => router.push('/minhas-resenhas')}>
-              <Text style={styles.seeAllText}>Ver todos</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 15 }}>
+              <TouchableOpacity onPress={() => setFavoritesModalVisible(true)}>
+                <Feather name="edit-2" size={18} color="#ed0000ff" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => router.push('/minhas-resenhas')}>
+                <Text style={styles.seeAllText}>Ver todos</Text>
+              </TouchableOpacity>
+            </View>
           </View>
           
-          <FlatList
-            data={favoriteAlbums.length > 0 ? favoriteAlbums : [
-              { id: '1', album_name: 'Thriller', artist: 'Michael Jackson', cover_url: 'https://via.placeholder.com/80' },
-              { id: '2', album_name: 'La Última Misión', artist: 'Wisin & Yandel', cover_url: 'https://via.placeholder.com/80' },
-              { id: '3', album_name: 'Exatamente Agora', artist: 'Bruno & Marrone', cover_url: 'https://via.placeholder.com/80' }
-            ]}
-            renderItem={renderFavoriteAlbum}
-            keyExtractor={(item) => item.id}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.favoritesList}
-          />
+          {favoriteAlbums.length > 0 ? (
+            <FlatList
+              data={favoriteAlbums}
+              renderItem={renderFavoriteAlbum}
+              keyExtractor={(item) => item.id}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.favoritesList}
+            />
+          ) : (
+            <View style={styles.emptyFavorites}>
+              <Feather name="heart" size={40} color="#666" />
+              <Text style={styles.emptyText}>Nenhum álbum favorito selecionado</Text>
+              <TouchableOpacity 
+                style={styles.selectButton}
+                onPress={() => setFavoritesModalVisible(true)}
+              >
+                <Text style={styles.selectButtonText}>Selecionar Favoritos</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         <View style={styles.section}>
@@ -400,6 +507,63 @@ export default function PerfilScreen() {
           )}
         </View>
       </ScrollView>
+
+      <Modal
+        visible={favoritesModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setFavoritesModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.favoritesModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Selecione seus Favoritos</Text>
+              <TouchableOpacity onPress={() => setFavoritesModalVisible(false)}>
+                <Feather name="x" size={24} color="#fff" />
+              </TouchableOpacity>
+            </View>
+            
+            <Text style={styles.modalSubtitle}>
+              Escolha até 3 álbuns ({selectedFavorites.length}/3)
+            </Text>
+
+            <ScrollView style={styles.reviewsSelectionList}>
+              {allReviews.map((review) => (
+                <TouchableOpacity
+                  key={review.id}
+                  style={[
+                    styles.reviewSelectionItem,
+                    selectedFavorites.includes(review.id) && styles.reviewSelectionItemSelected
+                  ]}
+                  onPress={() => toggleFavorite(review.id)}
+                >
+                  <Image 
+                    source={{ uri: review.cover_url || 'https://via.placeholder.com/60' }} 
+                    style={styles.reviewSelectionCover}
+                  />
+                  <View style={styles.reviewSelectionInfo}>
+                    <Text style={styles.reviewSelectionAlbum}>{review.album_name}</Text>
+                    <Text style={styles.reviewSelectionArtist}>{review.artist}</Text>
+                    <View style={styles.ratingContainer}>
+                      {renderStars(review.rating)}
+                    </View>
+                  </View>
+                  {selectedFavorites.includes(review.id) && (
+                    <Feather name="check-circle" size={24} color="#ed0000ff" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <TouchableOpacity 
+              style={styles.saveButton}
+              onPress={saveFavorites}
+            >
+              <Text style={styles.saveButtonText}>Salvar Favoritos</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <CustomBottomNav />
     </View>
@@ -648,5 +812,79 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  emptyFavorites: {
+    alignItems: 'center',
+    paddingVertical: 30,
+  },
+  emptyText: {
+    color: '#999',
+    fontSize: 14,
+    marginTop: 10,
+    marginBottom: 15,
+  },
+  selectButton: {
+    backgroundColor: '#ed0000ff',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  selectButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  favoritesModalContent: {
+    backgroundColor: '#3c0606ff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    maxHeight: '80%',
+  },
+  modalSubtitle: {
+    color: '#ccc',
+    fontSize: 14,
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  reviewsSelectionList: {
+    maxHeight: 400,
+  },
+  reviewSelectionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#5a0a0aff',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  reviewSelectionItemSelected: {
+    borderColor: '#ed0000ff',
+    backgroundColor: '#682626ff',
+  },
+  reviewSelectionCover: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    marginRight: 12,
+  },
+  reviewSelectionInfo: {
+    flex: 1,
+  },
+  reviewSelectionAlbum: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  reviewSelectionArtist: {
+    color: '#ccc',
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  ratingContainer: {
+    flexDirection: 'row',
   },
 });

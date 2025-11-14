@@ -204,7 +204,6 @@ export default function AlbumReview() {
       <StatusBar barStyle="light-content" />
       
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Feather name="arrow-left" size={24} color="#fff" />
@@ -215,7 +214,6 @@ export default function AlbumReview() {
           <View style={styles.placeholder} />
         </View>
 
-        {/* Album Info */}
         <View style={styles.albumInfo}>
           <Image
             source={{ uri: coverUrl || 'https://via.placeholder.com/150' }}
@@ -228,7 +226,6 @@ export default function AlbumReview() {
           </View>
         </View>
 
-        {/* Rating Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Dê a sua nota</Text>
           <View style={styles.starsContainer}>
@@ -236,7 +233,6 @@ export default function AlbumReview() {
           </View>
         </View>
 
-        {/* Review Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Escreva aqui o que achou desse álbum...</Text>
           <TextInput
@@ -251,7 +247,6 @@ export default function AlbumReview() {
           />
         </View>
 
-        {/* Botões de Ação */}
         <View style={styles.actionsContainer}>
           <TouchableOpacity
             style={[
@@ -282,7 +277,6 @@ export default function AlbumReview() {
         </View>
       </ScrollView>
 
-      {/* Bottom Navigation */}
       <CustomBottomNav />
     </View>
   );
