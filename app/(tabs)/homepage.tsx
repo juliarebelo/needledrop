@@ -10,6 +10,7 @@ import {
   TouchableOpacity, View
 } from 'react-native';
 import { supabase } from '../../services/supabase';
+import CustomBottomNav from '../components/CustomBottomNav';
 
 interface Usuario {
   id: string;
@@ -38,7 +39,7 @@ const Header = ({ usuario }: { usuario: Usuario | null }) => {
       <TouchableOpacity onPress={() => alert('Abrir menu lateral!')}>
         <Feather name="menu" size={32} color="#FFFFFF" />
       </TouchableOpacity>
-      <Text style={styles.greeting}>Olá, {usuario?.nome || 'Amigo'}!</Text>
+      <Text style={styles.greeting}>Olá, {usuario?.nome.trim()}!</Text>
       <TouchableOpacity onPress={() => router.push('/(tabs)/perfil')}>
         <Image
           source={{ uri: usuario?.fotoUrl || 'https://via.placeholder.com/150' }}
@@ -77,24 +78,6 @@ const AlbumListItem = ({ item, isFavorito, onToggleFavorito }: { item: Album; is
     </TouchableOpacity>
   </TouchableOpacity>
 );
-
-const CustomBottomNav = () => {
-  const router = useRouter(); 
-
-  return (
-    <View style={styles.navContainer}>
-      <TouchableOpacity onPress={() => router.push('/(tabs)/homepage')}>
-        <Image source={require('../../assets/images/home.png')} style={styles.navIcon} />
-      </TouchableOpacity>
-      <TouchableOpacity onPress={() => router.push('/(tabs)/busca')}>
-        <Image source={require('../../assets/images/search.png')} style={styles.navIcon} />
-      </TouchableOpacity>
-      <TouchableOpacity onPress={() => router.push('/(tabs)/perfil')}>
-        <Image source={require('../../assets/images/user.png')} style={styles.navIcon} />
-      </TouchableOpacity>
-    </View>
-  );
-};
 
 export default function Homepage() {
   const router = useRouter();
@@ -225,12 +208,26 @@ export default function Homepage() {
   );
 
   useEffect(() => {
+    const inicializar = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user) {
+        setUsuario({
+          id: session.user.id,
+          nome: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Amigo',
+          fotoUrl: session.user.user_metadata?.avatar_url || 'https://via.placeholder.com/150'
+        });
+      } else {
+        setUsuario({
+          id: 'guest',
+          nome: 'Amigo',
+          fotoUrl: 'https://via.placeholder.com/150'
+        });
+      }
+    };
+
+    inicializar();
     setAlbuns(albunsDecorativos);
-    setUsuario({
-      id: '1',
-      nome: 'Maria',
-      fotoUrl: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop'
-    });
     setPlaylists([
       {
         id: '2',
@@ -437,25 +434,6 @@ const styles = StyleSheet.create({
   },
   favoriteButton: {
     padding: 8,
-  },
-  navContainer: {
-    position: 'absolute',
-    bottom: 20,
-    left: 20,
-    right: 20,
-    backgroundColor: 'rgba(42, 12, 12, 0.9)',
-    borderRadius: 30,
-    height: 60,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#555',
-  },
-  navIcon: {
-    width: 28,
-    height: 28,
-    resizeMode: 'contain',
   },
   modalContainer: {
     flex: 1,
