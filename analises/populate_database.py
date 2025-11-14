@@ -50,7 +50,6 @@ class DatabasePopulator:
         
         if title_col and artist_col:
             df = df.drop_duplicates(subset=[title_col, artist_col], keep='first')
-            # Renomeia para padronizar
             df = df.rename(columns={title_col: 'title', artist_col: 'artist'})
         else:
             logger.warning("Colunas de título ou artista não encontradas, continuando sem remover duplicatas")
