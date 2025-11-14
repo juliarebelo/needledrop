@@ -18,7 +18,6 @@ export default function LoginScreen() {
         setErroSenha('');
         let formValido = true;
 
-        // Validação de email
         if (!email) {
             setErroEmail('O email é obrigatório.');
             formValido = false;
@@ -27,18 +26,15 @@ export default function LoginScreen() {
             formValido = false;
         }
 
-        // Validação de senha
         if (!senha) {
             setErroSenha('A senha é obrigatória.');
             formValido = false;
         }
 
         if (!formValido) return;
-
         setLoading(true);
 
         try {
-            // Login no Supabase
             const { data, error } = await supabase.auth.signInWithPassword({
                 email: email,
                 password: senha,
@@ -65,7 +61,6 @@ export default function LoginScreen() {
         <View style={styles.container}>
             <StatusBar barStyle="light-content" />
             
-            {/* Seção superior com imagem de fundo */}
             <ImageBackground
                 source={require('../assets/images/login-background.png')}
                 style={styles.topContainer}
@@ -73,18 +68,15 @@ export default function LoginScreen() {
                 imageStyle={styles.backgroundImageStyle}>
             </ImageBackground>
 
-            {/* Imagem de Vinil */}
             <Image 
                 source={require('../assets/images/vinil.png')}
                 style={styles.vinylImage}
             />
 
-            {/* Seção inferior com o formulário */}
             <View style={styles.bottomContainer}>
                 <Text style={styles.title}>Login</Text>
                 <Text style={styles.subtitle}>Entre para prosseguir</Text>
 
-                {/* Entrada do email */}
                 <View style={styles.inputContainer}>
                     <Feather name="mail" size={20} color="#888" style={styles.inputIcon} />
                     <TextInput
@@ -100,7 +92,6 @@ export default function LoginScreen() {
 
                 {erroEmail ? <Text style={styles.errorText}>{erroEmail}</Text> : null}
 
-                {/* Entrada da senha */}
                 <View style={styles.inputContainer}>
                     <Feather name="lock" size={20} color="#888" style={styles.inputIcon} />
                     <TextInput
@@ -115,12 +106,10 @@ export default function LoginScreen() {
 
                  {erroSenha ? <Text style={styles.errorText}>{erroSenha}</Text> : null}
 
-                {/* Link "Esqueceu a senha?" - Navega para a tela /senhas */}
                 <TouchableOpacity onPress={() => router.push('/senhas')}>
                     <Text style={styles.forgotPassword}>Esqueceu a senha?</Text>
                 </TouchableOpacity>
 
-                {/* Botão de Login */}
                 <TouchableOpacity 
                     style={[styles.loginButton, loading && styles.disabledButton]} 
                     onPress={handleLogin}
@@ -131,7 +120,6 @@ export default function LoginScreen() {
                     </Text>
                 </TouchableOpacity>
                 
-                {/* Link para a tela de registro */}
                 <View style={styles.signupContainer}>
                     <Text style={styles.signupText}>Não tem uma conta?</Text>
                     <TouchableOpacity onPress={() => router.push('/cadastro')}>

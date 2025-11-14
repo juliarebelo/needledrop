@@ -24,28 +24,6 @@ interface Musica {
   year?: number;
 }
 
-interface Suggestion {
-  id: string;
-  texto: string;
-}
-
-type SearchResult = (Musica & { type: 'album' }) | (Suggestion & { type: 'suggestion' });
-
-const mockSuggestions: Suggestion[] = [
-  { id: "s1", texto: "Rock" },
-  { id: "s2", texto: "Pop" },
-  { id: "s3", texto: "MPB" },
-  { id: "s4", texto: "Sertanejo" },
-  { id: "s5", texto: "Funk" },
-];
-
-const SuggestionItem = ({ item }: { item: Suggestion }) => (
-  <TouchableOpacity style={styles.suggestionItem}>
-    <Feather name="search" size={20} color="#aaa" />
-    <Text style={styles.suggestionText}>{item.texto}</Text>
-  </TouchableOpacity>
-);
-
 const AlbumResultItem = ({ item, onPress }: { item: Musica; onPress: (album: Musica) => void }) => (
   <TouchableOpacity 
     style={styles.albumItem} 
@@ -65,7 +43,7 @@ const AlbumResultItem = ({ item, onPress }: { item: Musica; onPress: (album: Mus
 export default function SearchScreen() {
   const router = useRouter();
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<SearchResult[]>([]);
+  const [results, setResults] = useState<Musica[]>([]);
   const [loading, setLoading] = useState(false);
 
   const handleAlbumPress = (album: Musica) => {
@@ -97,16 +75,7 @@ export default function SearchScreen() {
             console.error('Erro na busca:', error);
             setResults([]);
           } else {
-            const filteredAlbuns: SearchResult[] = (musicasData || []).map((a: Musica) => ({ 
-              ...a, 
-              type: 'album' 
-            }));
-
-            const filteredSuggestions: SearchResult[] = mockSuggestions
-              .filter((s: Suggestion) => s.texto.toLowerCase().startsWith(query.toLowerCase()))
-              .map((s: Suggestion) => ({ ...s, type: 'suggestion' }));
-
-            setResults([...filteredSuggestions, ...filteredAlbuns]);
+            setResults(musicasData || []);
           }
         } catch (error) {
           console.error('Erro na busca:', error);
@@ -145,16 +114,10 @@ export default function SearchScreen() {
 
         <FlatList
           data={results}
-          keyExtractor={(item) => item.type + item.id}
-          renderItem={({ item }) => {
-            if (item.type === 'suggestion') {
-              return <SuggestionItem item={item} />;
-            }
-            if (item.type === 'album') {
-              return <AlbumResultItem item={item} onPress={handleAlbumPress} />;
-            }
-            return null;
-          }}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <AlbumResultItem item={item} onPress={handleAlbumPress} />
+          )}
           showsVerticalScrollIndicator={false}
           style={styles.list}
         />
@@ -192,16 +155,6 @@ const styles = StyleSheet.create({
   },
   list: {
     flex: 1,
-  },
-  suggestionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  suggestionText: {
-    color: '#ddd',
-    fontSize: 16,
-    marginLeft: 15,
   },
   albumItem: { 
     flexDirection: 'row', 

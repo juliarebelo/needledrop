@@ -1,6 +1,5 @@
 import { supabase } from '../lib/supabase';
 
-// ✅ INTERFACE PARA ALBUM
 interface Album {
   id: string;
   titulo: string;
@@ -33,12 +32,11 @@ export const MusicaService = {
     try {
       const { data, error } = await supabase
         .from('musicas')
-        .select('album, artist')
+        .select('album, artist, url_capa')
         .not('album', 'is', null);
 
       if (error) throw error;
 
-      // ✅ COM TIPAGEM EXPLÍCITA
       const albunsUnicos: Album[] = [];
       const albunsVistos = new Set<string>();
 
@@ -51,7 +49,8 @@ export const MusicaService = {
             id: chave,
             titulo: musica.album || 'Álbum Desconhecido',
             artista: musica.artist || 'Artista Desconhecido',
-            ano_lancamento: '2020'
+            ano_lancamento: '2020',
+            foto_capa: musica.url_capa || undefined
           });
         }
       });

@@ -118,39 +118,6 @@ export default function Homepage() {
     );
   };
 
-  const albunsDecorativos: Album[] = [
-    {
-      id: '1',
-      titulo: 'After Hours',
-      artista: 'The Weeknd',
-      capaUrl: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=300&h=300&fit=crop'
-    },
-    {
-      id: '2',
-      titulo: 'Future Nostalgia',
-      artista: 'Dua Lipa',
-      capaUrl: 'https://images.unsplash.com/photo-1571330735066-03aaa9429d89?w=300&h=300&fit=crop'
-    },
-    {
-      id: '4',
-      titulo: 'Chromatica',
-      artista: 'Lady Gaga',
-      capaUrl: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300&h=300&fit=crop'
-    },
-    {
-      id: '5',
-      titulo: 'Happier Than Ever',
-      artista: 'Billie Eilish',
-      capaUrl: 'https://images.unsplash.com/photo-1516280440614-37939bbacd81?w=300&h=300&fit=crop'
-    },
-    {
-      id: '6',
-      titulo: 'Dawn FM',
-      artista: 'The Weeknd',
-      capaUrl: 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=300&h=300&fit=crop'
-    }
-  ];
-
   const buscarAlbunsUnicos = async (): Promise<Album[]> => {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 6000);
@@ -166,8 +133,8 @@ export default function Homepage() {
       clearTimeout(timeout);
 
       if (error || !musicasData) {
-        console.warn('[Albuns] fallback decorativo. Erro:', error?.message);
-        return albunsDecorativos;
+        console.warn('[Albuns] Erro ao buscar:', error?.message);
+        return [];
       }
 
       const albunsUnicos: Album[] = [];
@@ -190,11 +157,11 @@ export default function Homepage() {
     } catch (error: any) {
       clearTimeout(timeout);
       if (error?.name === 'AbortError') {
-        console.warn('[Albuns] Timeout – usando dados decorativos');
+        console.warn('[Albuns] Timeout na busca');
       } else {
-        console.warn('[Albuns] Erro inesperado – usando dados decorativos', error);
+        console.warn('[Albuns] Erro inesperado', error);
       }
-      return albunsDecorativos;
+      return [];
     }
   };
 
@@ -227,14 +194,6 @@ export default function Homepage() {
     };
 
     inicializar();
-    setAlbuns(albunsDecorativos);
-    setPlaylists([
-      {
-        id: '2',
-        titulo: 'Rock Classics',
-        capaUrl: 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=150&h=150&fit=crop'
-      }
-    ]);
 
     let ativo = true;
     const carregar = async () => {

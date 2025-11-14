@@ -8,7 +8,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "fill-covers": "npx ts-node scripts/fillCovers.ts"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
