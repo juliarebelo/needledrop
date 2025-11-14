@@ -16,7 +16,6 @@ export default function WelcomeScreen() {
           Needle<Text style={styles.brandNameBold}>Drop</Text>
         </Text>
 
-        {/* Botão de Iniciar */}
         <Link href="/login" asChild>
           <TouchableOpacity style={styles.button}>
             <Text style={styles.buttonText}>Iniciar</Text>
@@ -32,7 +31,6 @@ export default function WelcomeScreen() {
   );
 }
 
-// Estilos
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -45,8 +43,8 @@ const styles = StyleSheet.create({
   albumImage: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover', // << VÍRGULA ADICIONADA
-  }, // << CERTIFIQUE-SE DE FECHAR O OBJETO AQUI
+    resizeMode: 'cover', 
+  }, 
   bottomContainer: {
     flex: 1,
     backgroundColor: '#D3D3D3',

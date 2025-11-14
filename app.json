@@ -39,6 +39,12 @@
           }
         }
       ],
+      [
+        "expo-font",
+        {
+          "fonts": []
+        }
+      ],
       "expo-web-browser",
       "expo-secure-store"
     ],

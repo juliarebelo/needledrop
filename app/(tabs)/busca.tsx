@@ -12,6 +12,7 @@ import {
   View
 } from 'react-native';
 import { supabase } from '../../services/supabase';
+import CustomBottomNav from '../components/CustomBottomNav';
 
 interface Musica {
   id: string;
@@ -30,7 +31,6 @@ interface Suggestion {
 
 type SearchResult = (Musica & { type: 'album' }) | (Suggestion & { type: 'suggestion' });
 
-// Sugestões fixas (podem vir do Supabase depois)
 const mockSuggestions: Suggestion[] = [
   { id: "s1", texto: "Rock" },
   { id: "s2", texto: "Pop" },
@@ -62,23 +62,6 @@ const AlbumResultItem = ({ item, onPress }: { item: Musica; onPress: (album: Mus
   </TouchableOpacity>
 );
 
-const CustomBottomNav = () => {
-  const router = useRouter(); 
-  return (
-    <View style={navStyles.navContainer}>
-      <TouchableOpacity onPress={() => router.push('/(tabs)/homepage')}>
-        <Feather name="home" size={24} color="#fff" />
-      </TouchableOpacity>
-      <TouchableOpacity onPress={() => router.push('/(tabs)/busca')}>
-        <Feather name="search" size={24} color="#fff" />
-      </TouchableOpacity>
-      <TouchableOpacity onPress={() => router.push('/(tabs)/perfil')}>
-        <Feather name="user" size={24} color="#fff" />
-      </TouchableOpacity>
-    </View>
-  );
-};
-
 export default function SearchScreen() {
   const router = useRouter();
   const [query, setQuery] = useState('');
@@ -86,7 +69,6 @@ export default function SearchScreen() {
   const [loading, setLoading] = useState(false);
 
   const handleAlbumPress = (album: Musica) => {
-  // Navega para a tela de resenha passando os dados do álbum como parâmetros
   router.push({
     pathname: '/album-review',
     params: {
@@ -105,7 +87,6 @@ export default function SearchScreen() {
         setLoading(true);
 
         try {
-          // Busca no Supabase
           const { data: musicasData, error } = await supabase
             .from('musicas')
             .select('id, title, artist, album, url_capa, url_spotify')
@@ -121,7 +102,6 @@ export default function SearchScreen() {
               type: 'album' 
             }));
 
-            // Filtra sugestões que começam com a query
             const filteredSuggestions: SearchResult[] = mockSuggestions
               .filter((s: Suggestion) => s.texto.toLowerCase().startsWith(query.toLowerCase()))
               .map((s: Suggestion) => ({ ...s, type: 'suggestion' }));
@@ -144,7 +124,6 @@ export default function SearchScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Conteúdo principal */}
       <View style={styles.content}>
         <View style={styles.searchContainer}>
           <TextInput
@@ -181,7 +160,6 @@ export default function SearchScreen() {
         />
       </View>
 
-      {/* Navbar fixo na parte inferior */}
       <CustomBottomNav />
     </View>
   );
@@ -247,17 +225,5 @@ const styles = StyleSheet.create({
   albumArtist: { 
     color: '#ccc',
     fontSize: 14,
-  },
-});
-
-const navStyles = StyleSheet.create({
-  navContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    backgroundColor: '#2a0c0c',
-    paddingVertical: 15,
-    borderTopWidth: 1,
-    borderTopColor: '#444',
   },
 });
