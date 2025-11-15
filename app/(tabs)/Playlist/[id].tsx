@@ -23,7 +23,7 @@ interface Musica {
   title: string | null;
   artist: string;
   album: string | null;
-  url_capa: string | null;
+  album_cover: string | null;
 }
 
 interface Playlist {
@@ -87,25 +87,20 @@ export default function PlaylistDetailScreen() {
       }
 
       const { data: musicasData, error: musicasError } = await supabase
-        .from('playlist_musicas')
-        .select(`
-          song_id,
-          musicas (id, title, artist, album, url_capa)
-        `)
-        .eq('playlist_id', id)
-        .order('position', { ascending: true });
+  .from('playlist_musicas')
+  .select(`
+    song_id,
+    musicas (id, title, artist, album, album_cover)`)
+  .eq('playlist_id', id)
+  .order('position', { ascending: true });
 
-      if (musicasError) {
-        console.error('Erro ao buscar músicas:', musicasError);
-      }
-
-      const musicas = (musicasData || []).map((item: any) => ({
-        id: item.musicas.id,
-        title: item.musicas.title,
-        artist: item.musicas.artist,
-        album: item.musicas.album,
-        url_capa: item.musicas.url_capa
-      }));
+const musicas = (musicasData || []).map((item: any) => ({
+  id: item.musicas.id,
+  title: item.musicas.title,
+  artist: item.musicas.artist,
+  album: item.musicas.album,
+  album_cover: item.musicas.album_cover
+}));
 
       setPlaylist({
         id: playlistData.id,
@@ -126,10 +121,10 @@ export default function PlaylistDetailScreen() {
       if (searchQuery.length > 0) {
         try {
           const { data, error } = await supabase
-            .from('musicas')
-            .select('id, title, artist, album, url_capa')
-            .or(`title.ilike.%${searchQuery}%,artist.ilike.%${searchQuery}%,album.ilike.%${searchQuery}%`)
-            .limit(5);
+  .from('musicas')
+  .select('id, title, artist, album, album_cover')
+  .or(`title.ilike.%${searchQuery}%,artist.ilike.%${searchQuery}%,album.ilike.%${searchQuery}%`)
+  .limit(5);
 
           if (error) {
             console.error('Erro na busca:', error);
@@ -436,7 +431,7 @@ export default function PlaylistDetailScreen() {
                 style={styles.searchResultItem}
                 onPress={() => adicionarMusica(item)}
               >
-                <Image source={{ uri: item.url_capa || 'https://via.placeholder.com/150' }} style={styles.albumImage} />
+                <Image source={{ uri: item.album_cover || 'https://via.placeholder.com/150' }} style={styles.albumImage} />
                 <View style={styles.albumInfo}>
                   <Text style={styles.albumTitle}>{item.album || item.title || 'Sem título'}</Text>
                   <Text style={styles.albumArtist}>{item.artist}</Text>
@@ -468,7 +463,7 @@ export default function PlaylistDetailScreen() {
             scrollEnabled={false}
             renderItem={({ item }) => (
               <TouchableOpacity style={styles.playlistMusicaItem}>
-                <Image source={{ uri: item.url_capa || 'https://via.placeholder.com/150' }} style={styles.albumImage} />
+                <Image source={{ uri: item.album_cover || 'https://via.placeholder.com/150' }} style={styles.albumImage} />
                 <View style={styles.albumInfo}>
                   <Text style={styles.albumTitle}>{item.album || item.title || 'Sem título'}</Text>
                   <Text style={styles.albumArtist}>{item.artist}</Text>

@@ -19,7 +19,7 @@ interface Musica {
   title: string | null;
   artist: string;
   album: string | null;
-  url_capa: string | null;
+  album_cover: string | null;
   year?: number;
 }
 
@@ -29,7 +29,7 @@ const AlbumResultItem = React.memo(({ item, onPress }: { item: Musica; onPress: 
     onPress={() => onPress(item)}
   >
     <Image 
-      source={{ uri: item.url_capa || 'https://via.placeholder.com/150' }} 
+      source={{ uri: item.album_cover || 'https://via.placeholder.com/150' }}
       style={styles.albumImage} 
     />
     <View style={styles.albumInfo}>
@@ -47,17 +47,17 @@ export default function BuscaScreen() {
   const debounceTimer = useRef<number | undefined>(undefined);
 
   const handleAlbumPress = (album: Musica) => {
-  router.push({
-    pathname: '/album-review',
-    params: {
-      albumName: encodeURIComponent(album.album || album.title || 'Álbum Desconhecido'),
-      artist: encodeURIComponent(album.artist),
-      year: album.year?.toString() || '2020',
-      trackCount: '12',
-      coverUrl: encodeURIComponent(album.url_capa || '')
-    }
-  });
-};
+    router.push({
+      pathname: '/album-review',
+      params: {
+        albumName: encodeURIComponent(album.album || album.title || 'Álbum Desconhecido'),
+        artist: encodeURIComponent(album.artist),
+        year: album.year?.toString() || '2020',
+        trackCount: '12',
+        coverUrl: encodeURIComponent(album.album_cover || '') 
+      }
+    });
+  };
 
   useEffect(() => {
     if (debounceTimer.current) {
@@ -91,9 +91,9 @@ export default function BuscaScreen() {
       const searchTerm = query.toLowerCase().trim();
       const { data: musicasData, error } = await supabase
         .from('musicas')
-        .select('id, title, artist, album, url_capa')
+        .select('id, title, artist, album, album_cover')
         .or(`title.ilike.%${searchTerm}%,artist.ilike.%${searchTerm}%,album.ilike.%${searchTerm}%`)
-        .not('url_capa', 'is', null)
+        .not('album_cover', 'is', null)
         .limit(50);
 
       if (error) {

@@ -23,7 +23,7 @@ interface Review {
   artist: string;
   rating: number;
   review_text: string;
-  cover_url: string;
+  album_cover: string;
   created_at: string;
   year: number;
 }
@@ -87,7 +87,7 @@ const ReviewItem = ({ item, onEdit, onDelete }: ReviewItemProps) => {
           onLongPress={onSwipeLeft}
         >
           <Image
-            source={{ uri: item.cover_url || 'https://via.placeholder.com/80' }}
+            source={{ uri: item.album_cover || 'https://via.placeholder.com/80' }}
             style={styles.albumImage}
           />
           <View style={styles.reviewContent}>
@@ -173,7 +173,7 @@ export default function MinhasResenhasScreen() {
         artist: encodeURIComponent(review.artist),
         year: review.year.toString(),
         trackCount: '12',
-        coverUrl: encodeURIComponent(review.cover_url || '')
+        coverUrl: encodeURIComponent(review.album_cover || '')
       }
     });
   };

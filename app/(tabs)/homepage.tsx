@@ -106,7 +106,6 @@ export default function Homepage() {
   const [modalVisible, setModalVisible] = useState(false);
   const [novaPlaylistTitulo, setNovaPlaylistTitulo] = useState('');
 
-  // TESTE IMEDIATO - DEBUG DE AUTENTICAÇÃO
   useEffect(() => {
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -213,9 +212,8 @@ export default function Homepage() {
           fotoUrl: session.user.user_metadata?.avatar_url || 'https://via.placeholder.com/150'
         });
         
-        // Carrega recomendações PASSANDO o user_id
         setLoadingRecomendacoes(true);
-        const recomendacoesResult = await RecomendacaoService.getRecomendacoes(session.user.id); // ← AQUI TAMBÉM
+        const recomendacoesResult = await RecomendacaoService.getRecomendacoes(session.user.id);
         setRecomendacoes(recomendacoesResult);
         setLoadingRecomendacoes(false);
         console.log('Recomendações carregadas:', recomendacoesResult.length);
@@ -226,8 +224,7 @@ export default function Homepage() {
           nome: 'Visitante',
           fotoUrl: 'https://via.placeholder.com/150'
         });
-        // Busca recomendações SEM user_id (álbuns populares)
-        const recomendacoesResult = await RecomendacaoService.getRecomendacoes(); // ← SEM user_id
+        const recomendacoesResult = await RecomendacaoService.getRecomendacoes(); 
         setRecomendacoes(recomendacoesResult);
       }
     } catch (error) {
@@ -237,7 +234,6 @@ export default function Homepage() {
         nome: 'Visitante',
         fotoUrl: 'https://via.placeholder.com/150'
       });
-      // Fallback: busca recomendações mesmo com erro
       const recomendacoesResult = await RecomendacaoService.getRecomendacoes();
       setRecomendacoes(recomendacoesResult);
     } finally {

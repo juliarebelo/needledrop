@@ -128,7 +128,7 @@ export default function AlbumReview() {
             artist: artist,
             year: year,
             track_count: trackCount,
-            cover_url: coverUrl,
+            album_cover: coverUrl,  // ← CORRIGIDO
             rating: rating,
             review_text: review
           });

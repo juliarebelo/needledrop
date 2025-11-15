@@ -27,7 +27,7 @@ interface Review {
   artist: string;
   rating: number;
   review_text: string;
-  cover_url: string;
+  album_cover: string;
   created_at: string;
 }
 
@@ -35,7 +35,7 @@ interface FavoriteAlbum {
   id: string;
   album_name: string;
   artist: string;
-  cover_url: string;
+  album_cover: string;
 }
 
 export default function PerfilScreen() {
@@ -106,7 +106,7 @@ export default function PerfilScreen() {
               id: review.id,
               album_name: review.album_name,
               artist: review.artist,
-              cover_url: review.cover_url
+              album_cover: review.album_cover
             }));
           setFavoriteAlbums(favoritesData);
           setSelectedFavorites(savedFavorites);
@@ -116,7 +116,7 @@ export default function PerfilScreen() {
             id: review.id,
             album_name: review.album_name,
             artist: review.artist,
-            cover_url: review.cover_url
+            album_cover: review.album_cover
           }));
           setFavoriteAlbums(topRated);
         }
@@ -159,7 +159,7 @@ export default function PerfilScreen() {
           id: review.id,
           album_name: review.album_name,
           artist: review.artist,
-          cover_url: review.cover_url
+          album_cover: review.album_cover
         }));
       
       setFavoriteAlbums(favoritesData);
@@ -192,7 +192,7 @@ export default function PerfilScreen() {
   const renderFavoriteAlbum = ({ item }: { item: FavoriteAlbum }) => (
     <View style={styles.favoriteAlbum}>
       <Image
-        source={{ uri: item.cover_url || 'https://via.placeholder.com/80' }}
+        source={{ uri: item.album_cover || 'https://via.placeholder.com/80' }}
         style={styles.albumImage}
       />
       <Text style={styles.albumName} numberOfLines={1}>
@@ -538,7 +538,7 @@ export default function PerfilScreen() {
                   onPress={() => toggleFavorite(review.id)}
                 >
                   <Image 
-                    source={{ uri: review.cover_url || 'https://via.placeholder.com/60' }} 
+                    source={{ uri: review.album_cover || 'https://via.placeholder.com/60' }} 
                     style={styles.reviewSelectionCover}
                   />
                   <View style={styles.reviewSelectionInfo}>
