@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
@@ -11,6 +11,7 @@ import {
   TextInput,
   TouchableOpacity, View
 } from 'react-native';
+import { theme } from '../../constants/theme';
 import { supabase } from '../../services/supabase';
 import CustomBottomNav from '../components/CustomBottomNav';
 
@@ -33,13 +34,14 @@ interface Album {
   capaUrl: string;
 }
 
-const Header = React.memo(({ usuario }: { usuario: Usuario | null }) => {
-  const router = useRouter(); 
+const Header = ({ usuario }: { usuario: Usuario | null }) => {
+  const router = useRouter();
+  const navigation = useNavigation<any>();
 
   return (
     <View style={styles.header}>
-      <TouchableOpacity onPress={() => alert('Abrir menu lateral!')}>
-        <Feather name="menu" size={32} color="#FFFFFF" />
+      <TouchableOpacity onPress={() => navigation.openDrawer()}>
+        <Feather name="menu" size={32} color={theme.colors.text} />
       </TouchableOpacity>
       <Text style={styles.greeting}>Olá, {usuario?.nome.trim()}!</Text>
       <TouchableOpacity onPress={() => router.push('/(tabs)/perfil')}>
@@ -50,7 +52,7 @@ const Header = React.memo(({ usuario }: { usuario: Usuario | null }) => {
       </TouchableOpacity>
     </View>
   );
-});
+};
 
 const PlaylistCard = React.memo(({ item, onDelete, onPress }: { 
   item: Playlist; 
