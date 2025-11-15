@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 export const AvaliacaoService = {
   async salvarAvaliacao(avaliacao: {
     usuario_id: string;
-    album_id: string; // ✅ DEVE SER string
+    album_id: string;
     nota: number;
     comentario?: string;
   }) {

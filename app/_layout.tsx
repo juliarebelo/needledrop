@@ -2,7 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { Drawer } from 'expo-router/drawer';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { theme } from '../constants/theme';
-import { CustomDrawerContent } from './components/CustomDrawerContent';
+import { CustomDrawerContent } from './_components/CustomDrawerContent';
 
 export default function Layout() {
   return (

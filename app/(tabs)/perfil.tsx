@@ -19,7 +19,7 @@ import {
   View
 } from 'react-native';
 import { supabase } from '../../services/supabase';
-import CustomBottomNav from '../components/CustomBottomNav';
+import CustomBottomNav from '../_components/CustomBottomNav';
 
 interface Review {
   id: string;

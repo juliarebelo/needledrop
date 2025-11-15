@@ -12,8 +12,9 @@ import {
   TouchableOpacity, View
 } from 'react-native';
 import { theme } from '../../constants/theme';
+import { RecomendacaoService } from '../../services/recomendacaoService';
 import { supabase } from '../../services/supabase';
-import CustomBottomNav from '../components/CustomBottomNav';
+import CustomBottomNav from '../_components/CustomBottomNav';
 
 interface Usuario {
   id: string;
@@ -96,13 +97,28 @@ export default function Homepage() {
   const router = useRouter();
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
-  const [albuns, setAlbuns] = useState<Album[]>([]);
+  const [recomendacoes, setRecomendacoes] = useState<Album[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingRecomendacoes, setLoadingRecomendacoes] = useState(false);
   
   const [favoritos, setFavoritos] = useState<string[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [novaPlaylistTitulo, setNovaPlaylistTitulo] = useState('');
+
+  // TESTE IMEDIATO - DEBUG DE AUTENTICAÇÃO
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('=== DEBUG SESSÃO ===');
+      console.log('Tem sessão?', !!session);
+      console.log('Usuário:', session?.user);
+      console.log('ID do usuário:', session?.user?.id);
+      console.log('Email:', session?.user?.email);
+      console.log('==============');
+    };
+    checkAuth();
+  }, []);
 
   const excluirPlaylist = useCallback(async (playlistId: string) => {
     try {
@@ -174,54 +190,6 @@ export default function Homepage() {
     );
   }, []);
 
-  const buscarAlbunsUnicos = async (): Promise<Album[]> => {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 4000);
-    try {
-      const { data: musicasData, error } = await supabase
-        .from('musicas')
-        .select('id, artist, album, url_capa')
-        .not('album', 'is', null)
-        .not('artist', 'is', null)
-        .not('url_capa', 'is', null)
-        .limit(50)
-        .abortSignal(controller.signal);
-
-      clearTimeout(timeout);
-
-      if (error || !musicasData) {
-        console.warn('[Albuns] Erro ao buscar:', error?.message);
-        return [];
-      }
-
-      const albunsUnicos: Album[] = [];
-      const vistos = new Set<string>();
-
-      for (const musica of musicasData) {
-        if (!musica.artist || !musica.album || !musica.url_capa) continue;
-        const chave = `${musica.artist.toLowerCase()}-${musica.album.toLowerCase()}`;
-        if (vistos.has(chave)) continue;
-        vistos.add(chave);
-        albunsUnicos.push({
-          id: musica.id,
-          titulo: musica.album,
-          artista: musica.artist,
-          capaUrl: musica.url_capa
-        });
-        if (albunsUnicos.length >= 5) break;
-      }
-      return albunsUnicos;
-    } catch (error: any) {
-      clearTimeout(timeout);
-      if (error?.name === 'AbortError') {
-        console.warn('[Albuns] Timeout na busca');
-      } else {
-        console.warn('[Albuns] Erro inesperado', error);
-      }
-      return [];
-    }
-  };
-
   const AddPlaylistCard = () => (
     <TouchableOpacity 
       style={[styles.playlistCard, styles.addCard]} 
@@ -232,38 +200,53 @@ export default function Homepage() {
   );
 
   useEffect(() => {
-    const inicializar = async () => {
+  const inicializar = async () => {
+    try {
       const { data: { session } } = await supabase.auth.getSession();
+      
+      console.log('Sessão no inicializar:', session); // Debug
       
       if (session?.user) {
         setUsuario({
           id: session.user.id,
-          nome: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Amigo',
+          nome: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Usuário',
           fotoUrl: session.user.user_metadata?.avatar_url || 'https://via.placeholder.com/150'
         });
+        
+        // Carrega recomendações PASSANDO o user_id
+        setLoadingRecomendacoes(true);
+        const recomendacoesResult = await RecomendacaoService.getRecomendacoes(session.user.id); // ← AQUI TAMBÉM
+        setRecomendacoes(recomendacoesResult);
+        setLoadingRecomendacoes(false);
+        console.log('Recomendações carregadas:', recomendacoesResult.length);
+        
       } else {
         setUsuario({
           id: 'guest',
-          nome: 'Amigo',
+          nome: 'Visitante',
           fotoUrl: 'https://via.placeholder.com/150'
         });
+        // Busca recomendações SEM user_id (álbuns populares)
+        const recomendacoesResult = await RecomendacaoService.getRecomendacoes(); // ← SEM user_id
+        setRecomendacoes(recomendacoesResult);
       }
-    };
-
-    inicializar();
-
-    let ativo = true;
-    const carregar = async () => {
-      setLoading(true);
-      const result = await buscarAlbunsUnicos();
-      if (ativo) setAlbuns(result);
+    } catch (error) {
+      console.error('Erro na inicialização:', error);
+      setUsuario({
+        id: 'guest',
+        nome: 'Visitante',
+        fotoUrl: 'https://via.placeholder.com/150'
+      });
+      // Fallback: busca recomendações mesmo com erro
+      const recomendacoesResult = await RecomendacaoService.getRecomendacoes();
+      setRecomendacoes(recomendacoesResult);
+    } finally {
       setLoading(false);
-    };
-    carregar();
-    return () => { ativo = false; };
-  }, []);
+    }
+  };
 
-  // Recarregar playlists quando voltar para a tela
+  inicializar();
+}, []);
   useFocusEffect(
     useCallback(() => {
       const carregarPlaylists = async () => {
@@ -292,30 +275,39 @@ export default function Homepage() {
   );
 
   // Função de refresh
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (session?.user) {
-      const { data: playlistsData, error } = await supabase
+const onRefresh = useCallback(async () => {
+  setRefreshing(true);
+  
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  if (session?.user) {
+    const [playlistsData, recomendacoesResult] = await Promise.all([
+      supabase
         .from('playlists')
         .select('id, titulo, capa_url')
         .eq('user_id', session.user.id)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false }),
+      RecomendacaoService.getRecomendacoes(session.user.id) // ← PASSA O USER_ID AQUI
+    ]);
 
-      if (!error && playlistsData) {
-        const playlistsFormatadas = playlistsData.map(p => ({
-          id: p.id,
-          titulo: p.titulo,
-          capaUrl: p.capa_url || 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=150&h=150&fit=crop'
-        }));
-        setPlaylists(playlistsFormatadas);
-      }
+    if (!playlistsData.error && playlistsData.data) {
+      const playlistsFormatadas = playlistsData.data.map(p => ({
+        id: p.id,
+        titulo: p.titulo,
+        capaUrl: p.capa_url || 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=150&h=150&fit=crop'
+      }));
+      setPlaylists(playlistsFormatadas);
     }
-    
-    setRefreshing(false);
-  }, []);
+
+    setRecomendacoes(recomendacoesResult);
+  } else {
+    // Se não tem sessão, ainda busca recomendações (álbuns populares)
+    const recomendacoesResult = await RecomendacaoService.getRecomendacoes(); // ← SEM user_id
+    setRecomendacoes(recomendacoesResult);
+  }
+  
+  setRefreshing(false);
+}, []);
 
   if (loading) {
     return <View style={styles.center}><ActivityIndicator size="large" color="#FFFFFF" /></View>;
@@ -396,28 +388,50 @@ export default function Homepage() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Álbuns em Destaque</Text>
-          <FlatList
-            data={albuns}
-            renderItem={({ item }) => (
-              <AlbumListItem 
-                item={item} 
-                isFavorito={favoritos.includes(item.id)}
-                onToggleFavorito={toggleFavorito}
-              />
-            )}
-            keyExtractor={item => item.id}
-            scrollEnabled={false}
-            initialNumToRender={10}
-            maxToRenderPerBatch={5}
-            windowSize={5}
-            removeClippedSubviews={true}
-            getItemLayout={(data, index) => ({
-              length: 80,
-              offset: 80 * index,
-              index,
-            })}
-          />
+          <Text style={styles.sectionTitle}>
+            {usuario?.id === 'guest' ? 'Álbuns Populares' : 'Recomendados para Você'}
+          </Text>
+          {loadingRecomendacoes ? (
+            <ActivityIndicator size="small" color="#FFFFFF" style={{ marginVertical: 20 }} />
+          ) : recomendacoes.length > 0 ? (
+            <FlatList
+              data={recomendacoes}
+              renderItem={({ item }) => (
+                <AlbumListItem 
+                  item={item} 
+                  isFavorito={favoritos.includes(item.id)}
+                  onToggleFavorito={toggleFavorito}
+                />
+              )}
+              keyExtractor={item => item.id}
+              scrollEnabled={false}
+              initialNumToRender={10}
+              maxToRenderPerBatch={5}
+              windowSize={5}
+              removeClippedSubviews={true}
+              getItemLayout={(data, index) => ({
+                length: 80,
+                offset: 80 * index,
+                index,
+              })}
+            />
+          ) : (
+            <View style={styles.loginSection}>
+              <Text style={styles.emptyText}>
+                {usuario?.id === 'guest' 
+                  ? 'Faça login para ver recomendações personalizadas' 
+                  : 'Avalie alguns álbuns para receber recomendações personalizadas'}
+              </Text>
+              {usuario?.id === 'guest' && (
+                <TouchableOpacity 
+                  style={styles.loginButton}
+                  onPress={() => router.push('/login')}
+                >
+                  <Text style={styles.loginButtonText}>Fazer Login</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
         </View>
       </ScrollView>
 
@@ -579,6 +593,29 @@ const styles = StyleSheet.create({
     backgroundColor: '#1DB954',
   },
   modalButtonText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  emptyText: {
+    color: '#ccc',
+    textAlign: 'center',
+    fontSize: 16,
+    marginVertical: 20,
+    fontStyle: 'italic',
+  },
+  loginSection: {
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  loginButton: {
+    backgroundColor: '#1DB954',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 10,
+  },
+  loginButtonText: {
     color: '#FFFFFF',
     fontWeight: 'bold',
     fontSize: 16,
