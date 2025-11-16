@@ -3,13 +3,13 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    FlatList, Image,
-    Modal,
-    RefreshControl,
-    ScrollView, StatusBar, StyleSheet, Text,
-    TextInput,
-    TouchableOpacity, View
+  ActivityIndicator,
+  FlatList, Image,
+  Modal,
+  RefreshControl,
+  ScrollView, StatusBar, StyleSheet, Text,
+  TextInput,
+  TouchableOpacity, View
 } from 'react-native';
 import { theme } from '../../constants/theme';
 import { RecomendacaoService } from '../../services/recomendacaoService';
@@ -325,8 +325,7 @@ const onRefresh = useCallback(async () => {
 
     setRecomendacoes(recomendacoesResult);
   } else {
-    // Se não tem sessão, ainda busca recomendações (álbuns populares)
-    const recomendacoesResult = await RecomendacaoService.getRecomendacoes(); // ← SEM user_id
+    const recomendacoesResult = await RecomendacaoService.getRecomendacoes(); 
     setRecomendacoes(recomendacoesResult);
   }
   

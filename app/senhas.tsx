@@ -19,7 +19,6 @@ export default function SenhasScreen() {
     const [erroConfirmaSenha, setErroConfirmaSenha] = useState('');
     const [loading, setLoading] = useState(false);
 
-    // Função para lidar com a redefinição de senha
     const handleRedefinirSenha = () => {
         setErroEmail('');
         setErroNovaSenha('');
@@ -28,7 +27,6 @@ export default function SenhasScreen() {
 
         if (loading) return;
 
-        // Validação de E-mail
         if (!email) {
             setErroEmail('O email é obrigatório.');
             formValido = false;
@@ -37,13 +35,11 @@ export default function SenhasScreen() {
             formValido = false;
         }
 
-        // Validação de Nova Senha
         if (!novaSenha || novaSenha.length < 6) {
             setErroNovaSenha('A nova senha deve ter no mínimo 6 caracteres.');
             formValido = false;
         }
 
-        // Validação de Confirmação de Senha
         if (novaSenha !== confirmaSenha) {
             setErroConfirmaSenha('As senhas não coincidem.');
             formValido = false;
@@ -54,11 +50,9 @@ export default function SenhasScreen() {
 
         if (formValido) {
             setLoading(true);
-            // Simulação de chamada de API/Backend (Ação de redefinição real)
             setTimeout(() => {
                 setLoading(false);
                 Alert.alert('Sucesso', 'Sua senha foi redefinida com sucesso! Por favor, faça login.');
-                // Após o sucesso, retorna para a tela de login
                 router.push('/');
             }, 1500);
         }
@@ -84,7 +78,6 @@ export default function SenhasScreen() {
                 <Text style={styles.title}>Redefinir Senha</Text>
                 <Text style={styles.subtitle}>Defina uma nova senha</Text>
 
-                {/* Entrada do E-mail */}
                 <View style={styles.inputContainer}>
                     <Feather name="mail" size={20} color="#888" style={styles.inputIcon} />
                     <TextInput
@@ -99,7 +92,6 @@ export default function SenhasScreen() {
                 </View>
                 {erroEmail ? <Text style={styles.errorText}>{erroEmail}</Text> : null}
 
-                {/* Entrada da Nova Senha */}
                 <View style={styles.inputContainer}>
                     <Feather name="lock" size={20} color="#888" style={styles.inputIcon} />
                     <TextInput
@@ -113,7 +105,6 @@ export default function SenhasScreen() {
                 </View>
                  {erroNovaSenha ? <Text style={styles.errorText}>{erroNovaSenha}</Text> : null}
 
-                {/* Entrada da Confirmação de Senha */}
                 <View style={styles.inputContainer}>
                     <Feather name="lock" size={20} color="#888" style={styles.inputIcon} />
                     <TextInput
@@ -127,7 +118,6 @@ export default function SenhasScreen() {
                 </View>
                  {erroConfirmaSenha ? <Text style={styles.errorText}>{erroConfirmaSenha}</Text> : null}
 
-                {/* Botão de Redefinir */}
                 <TouchableOpacity 
                     style={styles.redefinirButton} 
                     onPress={handleRedefinirSenha} 
@@ -140,7 +130,6 @@ export default function SenhasScreen() {
                     )}
                 </TouchableOpacity>
                 
-                {/* Link para voltar ao Login */}
                 <View style={styles.loginContainer}>
                     <Text style={styles.loginText}>Lembrou da senha?</Text>
                     <TouchableOpacity onPress={() => router.push('/')}>

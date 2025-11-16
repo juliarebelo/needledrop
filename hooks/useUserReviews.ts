@@ -7,7 +7,7 @@ export interface Resenha {
   artist: string;
   year: number;
   track_count: number;
-  album_cover: string | null; // coluna correta no banco
+  album_cover: string | null;
   rating: number;
   review_text: string;
   created_at: string;
@@ -25,12 +25,10 @@ export const useUserReviews = () => {
 
   const fetchUserAndReviews = async () => {
     try {
-      // Busca a sessão atual do usuário
       const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user || null);
 
       if (session?.user) {
-        // Busca as resenhas do usuário
         const { data, error } = await supabase
           .from('resenhas')
           .select('*')

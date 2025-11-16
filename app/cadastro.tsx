@@ -22,7 +22,6 @@ export default function CadastroScreen() {
         
         let formValido = true;
 
-        // Validação do email
         if (!email) {
             setErroEmail('O email é obrigatório.');
             formValido = false;
@@ -31,7 +30,6 @@ export default function CadastroScreen() {
             formValido = false;
         }
 
-        // Validação da senha
         if (!senha) {
             setErroSenha('A senha é obrigatória.');
             formValido = false;
@@ -40,7 +38,6 @@ export default function CadastroScreen() {
             formValido = false;
         }
 
-        // Validação da confirmação de senha
         if (!confirmarSenha) {
             setErroConfirmarSenha('A confirmação de senha é obrigatória.');
             formValido = false;
@@ -54,7 +51,6 @@ export default function CadastroScreen() {
         setLoading(true);
 
         try {
-            // Cadastro no Supabase
             const { data, error } = await supabase.auth.signUp({
                 email: email,
                 password: senha,
@@ -97,7 +93,6 @@ export default function CadastroScreen() {
                 <Text style={styles.title}>Cadastro</Text>
                 <Text style={styles.subtitle}>Crie sua conta</Text>
 
-                {/* Entrada do email */}
                 <View style={styles.inputContainer}>
                     <Feather name="mail" size={20} color="#888" style={styles.inputIcon} />
                     <TextInput
@@ -113,7 +108,6 @@ export default function CadastroScreen() {
 
                 {erroEmail ? <Text style={styles.errorText}>{erroEmail}</Text> : null}
 
-                {/* Entrada da senha */}
                 <View style={styles.inputContainer}>
                     <Feather name="lock" size={20} color="#888" style={styles.inputIcon} />
                     <TextInput
@@ -128,7 +122,6 @@ export default function CadastroScreen() {
 
                 {erroSenha ? <Text style={styles.errorText}>{erroSenha}</Text> : null}
 
-                {/* Entrada da confirmação de senha */}
                 <View style={styles.inputContainer}>
                     <Feather name="lock" size={20} color="#888" style={styles.inputIcon} />
                     <TextInput
@@ -143,7 +136,6 @@ export default function CadastroScreen() {
 
                 {erroConfirmarSenha ? <Text style={styles.errorText}>{erroConfirmarSenha}</Text> : null}
 
-                {/* Botão de Cadastro */}
                 <TouchableOpacity 
                     style={[styles.cadastroButton, loading && styles.disabledButton]} 
                     onPress={handleCadastro}
@@ -154,7 +146,6 @@ export default function CadastroScreen() {
                     </Text>
                 </TouchableOpacity>
                 
-                {/* Link para a tela de login */}
                 <View style={styles.loginContainer}>
                     <Text style={styles.loginText}>Já tem uma conta?</Text>
                     <TouchableOpacity onPress={() => router.push('/')}>

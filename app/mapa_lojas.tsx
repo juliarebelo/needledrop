@@ -130,7 +130,6 @@ export default function MapaLojasScreen() {
 
 
       <View style={styles.container}>
-        {/* Mapa */}
         <MapView
           ref={mapRef}
           style={styles.map}
@@ -156,9 +155,7 @@ export default function MapaLojasScreen() {
         </MapView>
 
 
-        {/* Bottom Sheet */}
         <Animated.View style={[styles.bottomSheet, { height: bottomSheetHeight }]}>
-          {/* Header do Bottom Sheet */}
           <TouchableOpacity
             style={styles.bottomSheetHandle}
             onPress={toggleExpand}
@@ -175,7 +172,6 @@ export default function MapaLojasScreen() {
           </TouchableOpacity>
 
 
-          {/* Lista de Lojas */}
           <FlatList
             data={lojas}
             keyExtractor={(item) => item.id}
@@ -217,7 +213,6 @@ export default function MapaLojasScreen() {
 }
 
 
-// Mock data para teste
 const mockLojas: Loja[] = [
   {
     id: '1',
