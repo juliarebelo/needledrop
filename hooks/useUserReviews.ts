@@ -7,7 +7,7 @@ export interface Resenha {
   artist: string;
   year: number;
   track_count: number;
-  cover_url: string | null;
+  album_cover: string | null; // coluna correta no banco
   rating: number;
   review_text: string;
   created_at: string;
@@ -38,7 +38,11 @@ export const useUserReviews = () => {
           .order('created_at', { ascending: false });
 
         if (error) throw error;
-        setReviews(data || []);
+        const normalized = (data || []).map(r => ({
+          ...r,
+          rating: typeof r.rating === 'string' ? parseFloat(r.rating) : r.rating
+        }));
+        setReviews(normalized);
       } else {
         setReviews([]);
       }

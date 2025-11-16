@@ -3,18 +3,17 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  FlatList, Image,
-  Modal,
-  RefreshControl,
-  ScrollView, StatusBar, StyleSheet, Text,
-  TextInput,
-  TouchableOpacity, View
+    ActivityIndicator,
+    FlatList, Image,
+    Modal,
+    RefreshControl,
+    ScrollView, StatusBar, StyleSheet, Text,
+    TextInput,
+    TouchableOpacity, View
 } from 'react-native';
 import { theme } from '../../constants/theme';
 import { RecomendacaoService } from '../../services/recomendacaoService';
 import { supabase } from '../../services/supabase';
-import CustomBottomNav from '../_components/CustomBottomNav';
 
 interface Usuario {
   id: string;
@@ -75,23 +74,39 @@ const PlaylistCard = React.memo(({ item, onDelete, onPress }: {
   </View>
 ));
 
-const AlbumListItem = React.memo(({ item, isFavorito, onToggleFavorito }: { item: Album; isFavorito: boolean; onToggleFavorito: (id: string) => void }) => (
-  <TouchableOpacity style={styles.albumItem}>
-    <Image 
-      source={{ uri: item.capaUrl || 'https://via.placeholder.com/150' }} 
-      style={styles.albumImage}
-      resizeMode="cover"
-      defaultSource={require('../../assets/images/icon.png')}
-    />
-    <View style={styles.albumTextContainer}>
-      <Text style={styles.albumTitle} numberOfLines={1}>{item.titulo}</Text>
-      <Text style={styles.albumArtist} numberOfLines={1}>{item.artista}</Text>
-    </View>
-    <TouchableOpacity onPress={() => onToggleFavorito(item.id)} style={styles.favoriteButton}>
-      <Feather name={isFavorito ? "heart" : "heart"} size={24} color={isFavorito ? "#FF0000" : "#FFFFFF"} />
+const AlbumListItem = React.memo(({ item, isFavorito, onToggleFavorito, onPress }: { 
+  item: Album; 
+  isFavorito: boolean; 
+  onToggleFavorito: (id: string) => void;
+  onPress: (item: Album) => void;
+}) => {
+  console.log('Renderizando álbum:', item.titulo, 'Capa URL:', item.capaUrl);
+  
+  return (
+    <TouchableOpacity style={styles.albumItem} onPress={() => onPress(item)}>
+      <Image 
+        source={{ uri: item.capaUrl || 'https://via.placeholder.com/150' }} 
+        style={styles.albumImage}
+        resizeMode="cover"
+        onError={(error) => console.log('Erro ao carregar imagem:', item.titulo, error.nativeEvent)}
+        onLoad={() => console.log('Imagem carregada:', item.titulo)}
+      />
+      <View style={styles.albumTextContainer}>
+        <Text style={styles.albumTitle} numberOfLines={1}>{item.titulo}</Text>
+        <Text style={styles.albumArtist} numberOfLines={1}>{item.artista}</Text>
+      </View>
+      <TouchableOpacity 
+        onPress={(e) => {
+          e.stopPropagation();
+          onToggleFavorito(item.id);
+        }} 
+        style={styles.favoriteButton}
+      >
+        <Feather name={isFavorito ? "heart" : "heart"} size={24} color={isFavorito ? "#FF0000" : "#FFFFFF"} />
+      </TouchableOpacity>
     </TouchableOpacity>
-  </TouchableOpacity>
-));
+  );
+});
 
 export default function Homepage() {
   const router = useRouter();
@@ -188,6 +203,19 @@ export default function Homepage() {
         : [...prev, albumId]
     );
   }, []);
+
+  const handleAlbumPress = useCallback((album: Album) => {
+    router.push({
+      pathname: '/album-review',
+      params: {
+        albumName: encodeURIComponent(album.titulo),
+        artist: encodeURIComponent(album.artista),
+        coverUrl: encodeURIComponent(album.capaUrl || ''),
+        year: new Date().getFullYear().toString(),
+        trackCount: '10'
+      }
+    });
+  }, [router]);
 
   const AddPlaylistCard = () => (
     <TouchableOpacity 
@@ -397,6 +425,7 @@ const onRefresh = useCallback(async () => {
                   item={item} 
                   isFavorito={favoritos.includes(item.id)}
                   onToggleFavorito={toggleFavorito}
+                  onPress={handleAlbumPress}
                 />
               )}
               keyExtractor={item => item.id}
@@ -430,8 +459,6 @@ const onRefresh = useCallback(async () => {
           )}
         </View>
       </ScrollView>
-
-      <CustomBottomNav />
     </View>
   );
 }

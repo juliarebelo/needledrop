@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -19,7 +19,7 @@ import {
   View
 } from 'react-native';
 import { supabase } from '../../services/supabase';
-import CustomBottomNav from '../_components/CustomBottomNav';
+import StarRating from '../_components/StarRating';
 
 interface Review {
   id: string;
@@ -40,6 +40,7 @@ interface FavoriteAlbum {
 
 export default function PerfilScreen() {
   const router = useRouter();
+  const navigation = useNavigation<any>();
   const [refreshing, setRefreshing] = useState(false);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [favoriteAlbums, setFavoriteAlbums] = useState<FavoriteAlbum[]>([]);
@@ -80,7 +81,6 @@ export default function PerfilScreen() {
       }
 
       if (session?.user) {
-        // Buscar resenhas recentes
         const { data: reviewsData } = await supabase
           .from('resenhas')
           .select('*')
@@ -88,18 +88,15 @@ export default function PerfilScreen() {
           .order('created_at', { ascending: false })
           .limit(3);
 
-        // Buscar todas as resenhas para seleção de favoritos
         const { data: allReviewsData } = await supabase
           .from('resenhas')
           .select('*')
           .eq('user_id', session.user.id)
           .order('rating', { ascending: false });
 
-        // Buscar favoritos salvos do usuário
         const savedFavorites = session.user.user_metadata?.favorite_albums || [];
         
         if (savedFavorites.length > 0 && allReviewsData) {
-          // Filtrar álbuns favoritos baseado nos IDs salvos
           const favoritesData = allReviewsData
             .filter(review => savedFavorites.includes(review.id))
             .map(review => ({
@@ -111,7 +108,6 @@ export default function PerfilScreen() {
           setFavoriteAlbums(favoritesData);
           setSelectedFavorites(savedFavorites);
         } else if (allReviewsData && allReviewsData.length > 0) {
-          // Se não tem favoritos salvos, usar os 3 mais bem avaliados
           const topRated = allReviewsData.slice(0, 3).map(review => ({
             id: review.id,
             album_name: review.album_name,
@@ -152,7 +148,6 @@ export default function PerfilScreen() {
 
       if (error) throw error;
 
-      // Atualizar a lista de favoritos exibida
       const favoritesData = allReviews
         .filter(review => selectedFavorites.includes(review.id))
         .map(review => ({
@@ -171,23 +166,7 @@ export default function PerfilScreen() {
     }
   };
 
-  const renderStars = (rating: number) => {
-    return (
-      <View style={styles.starsContainer}>
-        {[1, 2, 3, 4, 5].map((star) => (
-          <Text 
-            key={star} 
-            style={[
-              styles.star,
-              star <= rating ? styles.starFilled : styles.starEmpty
-            ]}
-          >
-            ★
-          </Text>
-        ))}
-      </View>
-    );
-  };
+
 
   const renderFavoriteAlbum = ({ item }: { item: FavoriteAlbum }) => (
     <View style={styles.favoriteAlbum}>
@@ -206,7 +185,7 @@ export default function PerfilScreen() {
 
   const renderReview = ({ item }: { item: Review }) => (
     <View style={styles.reviewCard}>
-      {renderStars(item.rating)}
+      <StarRating rating={item.rating} size={18} />
       <Text style={styles.reviewText} numberOfLines={2}>
         {item.review_text || 'Remarks'}
       </Text>
@@ -428,6 +407,13 @@ export default function PerfilScreen() {
           <View style={styles.profileHeaderBackground} />
           <View style={styles.profileHeader}>
             <TouchableOpacity 
+              style={styles.menuButton}
+              onPress={() => navigation.openDrawer()}
+            >
+              <Feather name="menu" size={24} color="#fff" />
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
               style={styles.editButton}
               onPress={() => setEditModalVisible(true)}
             >
@@ -500,7 +486,7 @@ export default function PerfilScreen() {
           ) : (
             <View style={styles.reviewsList}>
               <View style={styles.reviewCard}>
-                {renderStars(5)}
+                <StarRating rating={5} size={18} />
                 <Text style={styles.reviewText}>odie!!!!</Text>
               </View>
             </View>
@@ -545,7 +531,7 @@ export default function PerfilScreen() {
                     <Text style={styles.reviewSelectionAlbum}>{review.album_name}</Text>
                     <Text style={styles.reviewSelectionArtist}>{review.artist}</Text>
                     <View style={styles.ratingContainer}>
-                      {renderStars(review.rating)}
+                      <StarRating rating={review.rating} size={16} />
                     </View>
                   </View>
                   {selectedFavorites.includes(review.id) && (
@@ -564,8 +550,6 @@ export default function PerfilScreen() {
           </View>
         </View>
       </Modal>
-
-      <CustomBottomNav />
     </View>
   );
 }
@@ -598,6 +582,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     backgroundColor: 'transparent',
     position: 'relative',
+    zIndex: 1,
+  },
+  menuButton: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    backgroundColor: '#682626ff',
+    padding: 10,
+    borderRadius: 20,
     zIndex: 1,
   },
   avatarContainer: {
@@ -678,20 +671,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderLeftWidth: 4,
     borderLeftColor: '#b30000',
-  },
-  starsContainer: {
-    flexDirection: 'row',
-    marginBottom: 8,
-  },
-  star: {
-    fontSize: 16,
-    marginRight: 2,
-  },
-  starFilled: {
-    color: '#FFD700',
-  },
-  starEmpty: {
-    color: '#ddd',
+    gap: 8,
   },
   reviewText: {
     color: '#ffffffff',

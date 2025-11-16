@@ -1,4 +1,4 @@
-import { Feather } from '@expo/vector-icons';
+import { Feather, FontAwesome } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
@@ -14,23 +14,6 @@ import {
   View
 } from 'react-native';
 import { supabase } from '../services/supabase';
-
-const CustomBottomNav = () => {
-  const router = useRouter(); 
-  return (
-    <View style={navStyles.navContainer}>
-      <TouchableOpacity onPress={() => router.push('/(tabs)/homepage')}>
-        <Feather name="home" size={24} color="#fff" />
-      </TouchableOpacity>
-      <TouchableOpacity onPress={() => router.push('/(tabs)/busca')}>
-        <Feather name="search" size={24} color="#fff" />
-      </TouchableOpacity>
-      <TouchableOpacity onPress={() => router.push('/(tabs)/perfil')}>
-        <Feather name="user" size={24} color="#fff" />
-      </TouchableOpacity>
-    </View>
-  );
-};
 
 export default function AlbumReview() {
   const router = useRouter();
@@ -51,6 +34,12 @@ export default function AlbumReview() {
   const coverUrl = params.coverUrl ? decodeURIComponent(params.coverUrl as string) : '';
 
   useEffect(() => {
+    setRating(0);
+    setReview('');
+    setExistingReview(null);
+    setIsEditing(false);
+    setIsLoading(true);
+    
     checkUserAndReview();
   }, [albumName, artist]);
 
@@ -78,11 +67,15 @@ export default function AlbumReview() {
           setReview(data.review_text);
           setIsEditing(true);
         } else {
+          setRating(0);
+          setReview('');
           setIsEditing(false);
         }
       }
     } catch (error) {
       console.error('Erro ao verificar usuário e resenha:', error);
+      setRating(0);
+      setReview('');
       setIsEditing(false);
     } finally {
       setIsLoading(false);
@@ -90,7 +83,50 @@ export default function AlbumReview() {
   };
 
   const handleRatingPress = (selectedRating: number) => {
-    setRating(selectedRating);
+    if (Math.floor(rating) === selectedRating && rating === selectedRating) {
+      setRating(selectedRating - 0.5);
+    } else {
+      setRating(selectedRating);
+    }
+  };
+
+  const renderStars = () => {
+    return [1, 2, 3, 4, 5].map((star) => {
+      const isFilled = star <= rating;
+      const isHalf = star - 0.5 === rating;
+      
+      return (
+        <TouchableOpacity
+          key={star}
+          onPress={() => handleRatingPress(star)}
+          style={styles.starButton}
+        >
+          {isHalf ? (
+            <View style={styles.starContainer}>
+              <FontAwesome
+                name="star"
+                size={32}
+                color="#666"
+                style={styles.starBackground}
+              />
+              <View style={styles.halfStarContainer}>
+                <FontAwesome
+                  name="star"
+                  size={32}
+                  color="#FFD700"
+                />
+              </View>
+            </View>
+          ) : (
+            <FontAwesome
+              name="star"
+              size={32}
+              color={isFilled ? '#FFD700' : '#666'}
+            />
+          )}
+        </TouchableOpacity>
+      );
+    });
   };
 
   const handleSubmitReview = async () => {
@@ -110,7 +146,7 @@ export default function AlbumReview() {
         const { error } = await supabase
           .from('resenhas')
           .update({
-            rating,
+            rating: rating,
             review_text: review,
             updated_at: new Date().toISOString()
           })
@@ -128,7 +164,7 @@ export default function AlbumReview() {
             artist: artist,
             year: year,
             track_count: trackCount,
-            album_cover: coverUrl,  // ← CORRIGIDO
+            album_cover: coverUrl,
             rating: rating,
             review_text: review
           });
@@ -172,22 +208,6 @@ export default function AlbumReview() {
         }
       ]
     );
-  };
-
-  const renderStars = () => {
-    return [1, 2, 3, 4, 5].map((star) => (
-      <TouchableOpacity
-        key={star}
-        onPress={() => handleRatingPress(star)}
-        style={styles.starButton}
-      >
-        <Feather
-          name="star"
-          size={32}
-          color={star <= rating ? '#FFD700' : '#666'}
-        />
-      </TouchableOpacity>
-    ));
   };
 
   if (isLoading) {
@@ -276,8 +296,6 @@ export default function AlbumReview() {
           )}
         </View>
       </ScrollView>
-
-      <CustomBottomNav />
     </View>
   );
 }
@@ -364,6 +382,20 @@ const styles = StyleSheet.create({
   starButton: {
     padding: 5,
   },
+  starContainer: {
+    position: 'relative',
+    width: 32,
+    height: 32,
+  },
+  starBackground: {
+    position: 'absolute',
+  },
+  halfStarContainer: {
+    position: 'absolute',
+    width: 16,
+    height: 32,
+    overflow: 'hidden',
+  },
   reviewInput: {
     backgroundColor: '#4a1e1e',
     borderRadius: 8,
@@ -403,17 +435,5 @@ const styles = StyleSheet.create({
   deleteButtonText: {
     color: '#e74c3c',
     fontSize: 16,
-  },
-});
-
-const navStyles = StyleSheet.create({
-  navContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    backgroundColor: '#2a0c0c',
-    paddingVertical: 15,
-    borderTopWidth: 1,
-    borderTopColor: '#444',
   },
 });

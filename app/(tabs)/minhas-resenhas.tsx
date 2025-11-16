@@ -3,19 +3,20 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Animated,
-  FlatList,
-  Image,
-  RefreshControl,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    Animated,
+    FlatList,
+    Image,
+    RefreshControl,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { supabase } from '../../services/supabase';
+import StarRating from '../_components/StarRating';
 
 interface Review {
   id: string;
@@ -39,18 +40,7 @@ const ReviewItem = ({ item, onEdit, onDelete }: ReviewItemProps) => {
   const [swiped, setSwiped] = useState(false);
 
   const renderStars = (rating: number) => {
-    return (
-      <View style={styles.starsContainer}>
-        {[1, 2, 3, 4, 5].map((star) => (
-          <Feather
-            key={star}
-            name="star"
-            size={16}
-            color={star <= rating ? '#FFD700' : '#ddd'}
-          />
-        ))}
-      </View>
-    );
+    return <StarRating rating={rating} size={16} />;
   };
 
   const onSwipeLeft = () => {
@@ -156,7 +146,16 @@ export default function MinhasResenhasScreen() {
           .order('created_at', { ascending: false });
 
         if (error) throw error;
-        setReviews(data || []);
+        // Garante que rating seja number (numeric pode vir como string)
+        const normalized = (data || []).map(r => ({
+          ...r,
+          rating: typeof r.rating === 'string' ? parseFloat(r.rating) : r.rating
+        }));
+        console.log('[DEBUG] Total resenhas carregadas:', normalized.length);
+        normalized.slice(0,10).forEach((r, idx) => {
+          console.log(`[DEBUG] Resenha ${idx} rating bruto:`, r.rating, 'tipo:', typeof r.rating);
+        });
+        setReviews(normalized);
       }
     } catch (error) {
       console.error('Erro ao buscar resenhas:', error);

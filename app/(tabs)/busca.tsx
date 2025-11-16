@@ -2,17 +2,16 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  FlatList,
-  Image,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    FlatList,
+    Image,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { supabase } from '../../services/supabase';
-import CustomBottomNav from '../_components/CustomBottomNav';
 
 interface Musica {
   id: string;
@@ -166,8 +165,6 @@ export default function BuscaScreen() {
           style={styles.list}
         />
       </View>
-
-      <CustomBottomNav />
     </View>
   );
 }

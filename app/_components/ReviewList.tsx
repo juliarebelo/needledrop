@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import React from 'react';
 import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Resenha } from '../../hooks/useUserReviews';
+import StarRating from './StarRating';
 
 interface ReviewListProps {
   reviews: Resenha[];
@@ -21,7 +22,7 @@ const ReviewList: React.FC<ReviewListProps> = ({ reviews, onRefresh, refreshing 
         artist: encodeURIComponent(review.artist),
         year: review.year.toString(),
         trackCount: review.track_count.toString(),
-        coverUrl: encodeURIComponent(review.cover_url || '')
+        coverUrl: encodeURIComponent(review.album_cover || '')
       }
     });
   };
@@ -32,22 +33,13 @@ const ReviewList: React.FC<ReviewListProps> = ({ reviews, onRefresh, refreshing 
       onPress={() => handleEditReview(item)}
     >
       <Image
-        source={{ uri: item.cover_url || 'https://via.placeholder.com/150' }}
+        source={{ uri: item.album_cover || 'https://via.placeholder.com/150' }}
         style={styles.albumImage}
       />
       <View style={styles.reviewContent}>
         <Text style={styles.albumName}>{item.album_name}</Text>
         <Text style={styles.artist}>{item.artist}</Text>
-        <View style={styles.ratingContainer}>
-          {[1, 2, 3, 4, 5].map((star) => (
-            <Feather
-              key={star}
-              name="star"
-              size={16}
-              color={star <= item.rating ? '#FFD700' : '#666'}
-            />
-          ))}
-        </View>
+        <StarRating rating={item.rating} size={16} />
         <Text style={styles.reviewText} numberOfLines={2}>
           {item.review_text}
         </Text>
