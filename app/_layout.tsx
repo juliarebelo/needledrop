@@ -26,6 +26,34 @@ export default function Layout() {
         }}
       >
         <Drawer.Screen 
+          name="index" 
+          options={{ 
+            drawerItemStyle: { display: 'none' },
+            swipeEnabled: false,
+          }} 
+        />
+        <Drawer.Screen 
+          name="login" 
+          options={{ 
+            drawerItemStyle: { display: 'none' },
+            swipeEnabled: false,
+          }} 
+        />
+        <Drawer.Screen 
+          name="cadastro" 
+          options={{ 
+            drawerItemStyle: { display: 'none' },
+            swipeEnabled: false,
+          }} 
+        />
+        <Drawer.Screen 
+          name="senhas" 
+          options={{ 
+            drawerItemStyle: { display: 'none' },
+            swipeEnabled: false,
+          }} 
+        />
+        <Drawer.Screen 
           name="(tabs)" 
           options={{ 
             title: 'Início',

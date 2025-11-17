@@ -2,6 +2,7 @@ import { Link } from 'expo-router';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function WelcomeScreen() {
+
   return (
     <View style={styles.container}>
       <View style={styles.topContainer}>

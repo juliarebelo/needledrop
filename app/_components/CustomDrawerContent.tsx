@@ -27,7 +27,7 @@ export const CustomDrawerContent = (props: any) => {
           onPress: async () => {
             try {
               await supabase.auth.signOut();
-              router.replace('/login');
+              router.replace('/');
             } catch (error) {
               console.error('Erro ao sair:', error);
               Alert.alert('Erro', 'Não foi possível sair da conta');

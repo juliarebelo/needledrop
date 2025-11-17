@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Linking,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -26,6 +27,7 @@ export default function AlbumReview() {
   const [existingReview, setExistingReview] = useState<any>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [spotifyUrl, setSpotifyUrl] = useState<string | null>(null);
 
   const albumName = params.albumName ? decodeURIComponent(params.albumName as string) : 'Álbum Desconhecido';
   const artist = params.artist ? decodeURIComponent(params.artist as string) : 'Artista Desconhecido';
@@ -39,8 +41,10 @@ export default function AlbumReview() {
     setExistingReview(null);
     setIsEditing(false);
     setIsLoading(true);
+    setSpotifyUrl(null);
     
     checkUserAndReview();
+    fetchStreamingUrls();
   }, [albumName, artist]);
 
   const checkUserAndReview = async () => {
@@ -79,6 +83,47 @@ export default function AlbumReview() {
       setIsEditing(false);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchStreamingUrls = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('musicas')
+        .select('url_spotify')
+        .eq('artist', artist)
+        .eq('album', albumName)
+        .limit(1)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Erro ao buscar URLs:', error);
+      }
+
+      if (data) {
+        setSpotifyUrl(data.url_spotify);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar URLs de streaming:', error);
+    }
+  };
+
+  const handleOpenUrl = async (url: string | null, platform: string) => {
+    if (!url) {
+      Alert.alert('Indisponível', `Link do ${platform} não disponível para este álbum.`);
+      return;
+    }
+
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Erro', `Não foi possível abrir o link do ${platform}.`);
+      }
+    } catch (error) {
+      console.error(`Erro ao abrir ${platform}:`, error);
+      Alert.alert('Erro', `Falha ao abrir o ${platform}.`);
     }
   };
 
@@ -242,8 +287,19 @@ export default function AlbumReview() {
           <View style={styles.albumDetails}>
             <Text style={styles.albumName}>{albumName}</Text>
             <Text style={styles.artistName}>{artist}</Text>
-            <Text style={styles.albumMeta}>{year} • {trackCount} músicas</Text>
           </View>
+        </View>
+
+        <View style={styles.streamingSection}>
+          <TouchableOpacity 
+            style={[styles.streamingButton, styles.spotifyButton]}
+            onPress={() => handleOpenUrl(spotifyUrl, 'Spotify')}
+          >
+            <Image 
+              source={{ uri: 'https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_White.png' }} 
+              style={styles.streamingIcon}
+            />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.section}>
@@ -324,6 +380,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 20,
+    marginTop: 30,
   },
   backButton: {
     padding: 5,
@@ -361,9 +418,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 5,
   },
-  albumMeta: {
-    color: '#888',
-    fontSize: 14,
+  streamingSection: {
+    marginBottom: 30,
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  streamingButton: {
+    backgroundColor: '#4a1e1e',
+    borderRadius: 12,
+    padding: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    height: 60,
+  },
+  spotifyButton: {
+    backgroundColor: '#1a1a1a',
+  },
+  streamingIcon: {
+    width: 90,
+    height: 30,
+    resizeMode: 'contain',
   },
   section: {
     marginBottom: 30,
