@@ -3,17 +3,19 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  FlatList, Image,
-  Modal,
-  RefreshControl,
-  ScrollView, StatusBar, StyleSheet, Text,
-  TextInput,
-  TouchableOpacity, View
+    ActivityIndicator,
+    FlatList, Image,
+    Modal,
+    RefreshControl,
+    ScrollView, StatusBar, StyleSheet, Text,
+    TextInput,
+    TouchableOpacity, View
 } from 'react-native';
 import { theme } from '../../constants/theme';
 import { RecomendacaoService } from '../../services/recomendacaoService';
 import { supabase } from '../../services/supabase';
+
+const PLAYLIST_DEFAULT_IMAGE = require('../../assets/images/playlist_cover.jpg');
 
 interface Usuario {
   id: string;
@@ -62,7 +64,7 @@ const PlaylistCard = React.memo(({ item, onDelete, onPress }: {
   <View style={styles.playlistCardContainer}>
     <TouchableOpacity style={styles.playlistCard} onPress={() => onPress(item.id)}>
       <Image 
-        source={{ uri: item.capaUrl || 'https://via.placeholder.com/150' }} 
+        source={item.capaUrl ? { uri: item.capaUrl } : PLAYLIST_DEFAULT_IMAGE} 
         style={styles.playlistImage}
         resizeMode="cover"
       />
@@ -85,7 +87,7 @@ const AlbumListItem = React.memo(({ item, isFavorito, onToggleFavorito, onPress 
   return (
     <TouchableOpacity style={styles.albumItem} onPress={() => onPress(item)}>
       <Image 
-        source={{ uri: item.capaUrl || 'https://via.placeholder.com/150' }} 
+        source={item.capaUrl ? { uri: item.capaUrl } : PLAYLIST_DEFAULT_IMAGE} 
         style={styles.albumImage}
         resizeMode="cover"
         onError={(error) => console.log('Erro ao carregar imagem:', item.titulo, error.nativeEvent)}
@@ -170,7 +172,7 @@ export default function Homepage() {
         .insert({
           user_id: session.user.id,
           titulo: novaPlaylistTitulo,
-          capa_url: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=150&h=150&fit=crop'
+          capa_url: null
         })
         .select()
         .single();
@@ -184,7 +186,7 @@ export default function Homepage() {
       const novaPlaylist: Playlist = {
         id: data.id,
         titulo: data.titulo,
-        capaUrl: data.capa_url || 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=150&h=150&fit=crop'
+        capaUrl: data.capa_url || ''
       };
 
       setPlaylists([...playlists, novaPlaylist]);
@@ -287,7 +289,7 @@ export default function Homepage() {
             const playlistsFormatadas = playlistsData.map(p => ({
               id: p.id,
               titulo: p.titulo,
-              capaUrl: p.capa_url || 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=150&h=150&fit=crop'
+              capaUrl: p.capa_url || ''
             }));
             setPlaylists(playlistsFormatadas);
           }
@@ -318,7 +320,7 @@ const onRefresh = useCallback(async () => {
       const playlistsFormatadas = playlistsData.data.map(p => ({
         id: p.id,
         titulo: p.titulo,
-        capaUrl: p.capa_url || 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=150&h=150&fit=crop'
+        capaUrl: p.capa_url || ''
       }));
       setPlaylists(playlistsFormatadas);
     }

@@ -18,6 +18,8 @@ import {
 } from 'react-native';
 import { supabase } from '../../../services/supabase';
 
+const PLAYLIST_DEFAULT_IMAGE = require('../../../assets/images/playlist_cover.jpg');
+
 interface Musica {
   id: string;
   title: string | null;
@@ -102,10 +104,12 @@ const musicas = (musicasData || []).map((item: any) => ({
   album_cover: item.musicas.album_cover
 }));
 
+      const isOldDefault = playlistData.capa_url?.includes('unsplash.com/photo-1493225457124');
+      
       setPlaylist({
         id: playlistData.id,
         titulo: playlistData.titulo,
-        capaUrl: playlistData.capa_url || 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=150&h=150&fit=crop',
+        capaUrl: (playlistData.capa_url && !isOldDefault) ? playlistData.capa_url : '',
         musicas: musicas
       });
     } catch (error) {
@@ -291,13 +295,23 @@ const musicas = (musicasData || []).map((item: any) => ({
         {
           text: 'Remover',
           style: 'destructive',
-          onPress: () => {
+          onPress: async () => {
             if (playlist) {
-              setPlaylist({
-                ...playlist,
-                capaUrl: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=150&h=150&fit=crop'
-              });
-              Alert.alert('Sucesso', 'Capa padrão restaurada!');
+              try {
+                await supabase
+                  .from('playlists')
+                  .update({ capa_url: null })
+                  .eq('id', id);
+                
+                setPlaylist({
+                  ...playlist,
+                  capaUrl: ''
+                });
+                Alert.alert('Sucesso', 'Capa padrão restaurada!');
+              } catch (error) {
+                console.error('Erro ao restaurar capa:', error);
+                Alert.alert('Erro', 'Não foi possível restaurar a capa padrão');
+              }
             }
           }
         }
@@ -340,7 +354,7 @@ const musicas = (musicasData || []).map((item: any) => ({
                 {uploading ? (
                   <ActivityIndicator size="large" color="#ed0000ff" />
                 ) : (
-                  <Image source={{ uri: playlist?.capaUrl }} style={styles.coverEditImage} />
+                  <Image source={playlist?.capaUrl ? { uri: playlist.capaUrl } : PLAYLIST_DEFAULT_IMAGE} style={styles.coverEditImage} />
                 )}
               </TouchableOpacity>
               
@@ -390,7 +404,7 @@ const musicas = (musicasData || []).map((item: any) => ({
 
       <View style={styles.playlistHeader}>
         <TouchableOpacity onPress={() => setEditModalVisible(true)} style={styles.capaContainer}>
-          <Image source={{ uri: playlist.capaUrl }} style={styles.playlistCapa} />
+          <Image source={playlist.capaUrl ? { uri: playlist.capaUrl } : PLAYLIST_DEFAULT_IMAGE} style={styles.playlistCapa} />
           <View style={styles.editCoverOverlay}>
             <Feather name="camera" size={24} color="#fff" />
           </View>

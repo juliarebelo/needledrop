@@ -18,6 +18,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { FavoritesService } from '../../services/favoritesService';
 import { supabase } from '../../services/supabase';
 import StarRating from '../_components/StarRating';
 
@@ -94,19 +95,12 @@ export default function PerfilScreen() {
           .eq('user_id', session.user.id)
           .order('rating', { ascending: false });
 
-        const savedFavorites = session.user.user_metadata?.favorite_albums || [];
+        const favoritesData = await FavoritesService.getUserFavorites(session.user.id);
+        const favoriteIds = await FavoritesService.getFavoriteIds(session.user.id);
         
-        if (savedFavorites.length > 0 && allReviewsData) {
-          const favoritesData = allReviewsData
-            .filter(review => savedFavorites.includes(review.id))
-            .map(review => ({
-              id: review.id,
-              album_name: review.album_name,
-              artist: review.artist,
-              album_cover: review.album_cover
-            }));
+        if (favoritesData.length > 0) {
           setFavoriteAlbums(favoritesData);
-          setSelectedFavorites(savedFavorites);
+          setSelectedFavorites(favoriteIds);
         } else if (allReviewsData && allReviewsData.length > 0) {
           const topRated = allReviewsData.slice(0, 3).map(review => ({
             id: review.id,
@@ -127,36 +121,42 @@ export default function PerfilScreen() {
     }
   };
 
-  const toggleFavorite = (reviewId: string) => {
-    setSelectedFavorites(prev => {
-      if (prev.includes(reviewId)) {
-        return prev.filter(id => id !== reviewId);
-      } else if (prev.length < 3) {
-        return [...prev, reviewId];
-      } else {
-        Alert.alert('Limite atingido', 'Você pode selecionar no máximo 3 álbuns favoritos');
-        return prev;
+  const toggleFavorite = async (reviewId: string) => {
+    if (!user?.id) return;
+
+    console.log('Toggle favorite for review:', reviewId, 'User:', user.id);
+    const isCurrentlyFavorite = selectedFavorites.includes(reviewId);
+    
+    if (isCurrentlyFavorite) {
+      console.log('Removing favorite...');
+      const success = await FavoritesService.removeFavorite(user.id, reviewId);
+      console.log('Remove result:', success);
+      if (success) {
+        setSelectedFavorites(prev => prev.filter(id => id !== reviewId));
+        const updatedFavorites = await FavoritesService.getUserFavorites(user.id);
+        setFavoriteAlbums(updatedFavorites);
       }
-    });
+    } else if (selectedFavorites.length < 3) {
+      console.log('Adding favorite...');
+      const success = await FavoritesService.addFavorite(user.id, reviewId);
+      console.log('Add result:', success);
+      if (success) {
+        setSelectedFavorites(prev => [...prev, reviewId]);
+        const updatedFavorites = await FavoritesService.getUserFavorites(user.id);
+        setFavoriteAlbums(updatedFavorites);
+      } else {
+        Alert.alert('Erro', 'Não foi possível adicionar aos favoritos');
+      }
+    } else {
+      Alert.alert('Limite atingido', 'Você pode selecionar no máximo 3 álbuns favoritos');
+    }
   };
 
   const saveFavorites = async () => {
     try {
-      const { error } = await supabase.auth.updateUser({
-        data: { favorite_albums: selectedFavorites }
-      });
+      if (!user?.id) return;
 
-      if (error) throw error;
-
-      const favoritesData = allReviews
-        .filter(review => selectedFavorites.includes(review.id))
-        .map(review => ({
-          id: review.id,
-          album_name: review.album_name,
-          artist: review.artist,
-          album_cover: review.album_cover
-        }));
-      
+      const favoritesData = await FavoritesService.getUserFavorites(user.id);
       setFavoriteAlbums(favoritesData);
       setFavoritesModalVisible(false);
       Alert.alert('Sucesso!', 'Álbuns favoritos atualizados');
