@@ -54,11 +54,15 @@ export const RecomendacaoService = {
       const artistasFavoritos = [...new Set(avaliacoes?.map(a => a.artist) || [])].slice(0, 5);
       console.log('Artistas favoritos:', artistasFavoritos);
 
-      // 3. Buscar álbuns já avaliados para excluir
-      const { data: albumsAvaliados } = await supabase
+      // 3. Buscar álbuns já avaliados para excluir (garantir que ainda existem)
+      const { data: albumsAvaliados, error: avaliadosError } = await supabase
         .from('resenhas')
-        .select('album_name, artist')
+        .select('album_name, artist, id')
         .eq('user_id', userId);
+
+      if (avaliadosError) {
+        console.error('Erro ao buscar álbuns avaliados:', avaliadosError);
+      }
 
       const albumsAvaliadosSet = new Set(
         (albumsAvaliados || []).map(a => `${a.album_name}-${a.artist}`)

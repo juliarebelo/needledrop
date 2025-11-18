@@ -1,7 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { DrawerContentScrollView } from '@react-navigation/drawer';
 import { useRouter } from 'expo-router';
-import React from 'react';
 import {
   Alert,
   StyleSheet,
@@ -84,6 +83,14 @@ export const CustomDrawerContent = (props: any) => {
           >
             <Feather name="search" size={24} color={theme.colors.text} />
             <Text style={styles.drawerLinkText}>Buscar</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.drawerLink}
+            onPress={() => navigateTo('/(tabs)/Playlist/metas')}
+          >
+            <Feather name="target" size={24} color={theme.colors.text} />
+            <Text style={styles.drawerLinkText}>Metas de Audição</Text>
           </TouchableOpacity>
         </View>
       </DrawerContentScrollView>
