@@ -34,6 +34,7 @@ export default function AlbumReview() {
   const year = parseInt(params.year as string) || 2020;
   const trackCount = parseInt(params.trackCount as string) || 12;
   const coverUrl = params.coverUrl ? decodeURIComponent(params.coverUrl as string) : '';
+  const returnTo = (params.returnTo as string) || '/(tabs)/homepage';
 
   useEffect(() => {
     setRating(0);
@@ -199,7 +200,7 @@ export default function AlbumReview() {
 
         if (error) throw error;
         
-        router.back();
+        router.replace(returnTo as any);
       } else {
         const { error } = await supabase
           .from('resenhas')
@@ -216,7 +217,7 @@ export default function AlbumReview() {
 
         if (error) throw error;
         
-        router.back();
+        router.replace(returnTo as any);
       }
     } catch (error: any) {
       console.error('Erro ao salvar resenha:', error);
@@ -226,7 +227,10 @@ export default function AlbumReview() {
   };
 
   const handleDeleteReview = async () => {
-    if (!existingReview?.id || !user) return;
+    if (!existingReview?.id || !user) {
+      console.log('Delete review - Missing data:', { existingReview: existingReview?.id, user: user?.id });
+      return;
+    }
 
     Alert.alert(
       'Confirmar exclusão',
@@ -238,16 +242,23 @@ export default function AlbumReview() {
           style: 'destructive',
           onPress: async () => {
             try {
-              const { error } = await supabase
+              console.log('Deleting review with id:', existingReview.id);
+              const { data, error } = await supabase
                 .from('resenhas')
                 .delete()
-                .eq('id', existingReview.id);
+                .eq('id', existingReview.id)
+                .select();
 
-              if (error) throw error;
+              if (error) {
+                console.error('Supabase delete error:', error);
+                throw error;
+              }
 
-              router.back();
+              console.log('Delete successful:', data);
+              router.replace(returnTo as any);
             } catch (error) {
               console.error('Erro ao excluir resenha:', error);
+              Alert.alert('Erro', 'Não foi possível excluir a resenha');
             }
           }
         }
@@ -270,7 +281,7 @@ export default function AlbumReview() {
       
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <TouchableOpacity onPress={() => router.replace(returnTo as any)} style={styles.backButton}>
             <Feather name="arrow-left" size={24} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>

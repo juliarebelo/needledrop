@@ -54,6 +54,27 @@ export default function Layout() {
           }} 
         />
         <Drawer.Screen 
+          name="album-review" 
+          options={{ 
+            drawerItemStyle: { display: 'none' },
+            swipeEnabled: false,
+          }} 
+        />
+        <Drawer.Screen 
+          name="criar-meta" 
+          options={{ 
+            drawerItemStyle: { display: 'none' },
+            swipeEnabled: false,
+          }} 
+        />
+        <Drawer.Screen 
+          name="editar-meta" 
+          options={{ 
+            drawerItemStyle: { display: 'none' },
+            swipeEnabled: false,
+          }} 
+        />
+        <Drawer.Screen 
           name="(tabs)" 
           options={{ 
             title: 'Início',

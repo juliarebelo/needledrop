@@ -46,16 +46,15 @@ export default function BuscaScreen() {
   const debounceTimer = useRef<number | undefined>(undefined);
 
   const handleAlbumPress = (album: Musica) => {
-    router.push({
-      pathname: '/album-review',
-      params: {
-        albumName: encodeURIComponent(album.album || album.title || 'Álbum Desconhecido'),
-        artist: encodeURIComponent(album.artist),
-        year: album.year?.toString() || '2020',
-        trackCount: '12',
-        coverUrl: encodeURIComponent(album.album_cover || '') 
-      }
+    const params = new URLSearchParams({
+      albumName: album.album || album.title || 'Álbum Desconhecido',
+      artist: album.artist,
+      coverUrl: album.album_cover || '',
+      year: album.year?.toString() || new Date().getFullYear().toString(),
+      trackCount: '10',
+      returnTo: '/(tabs)/busca'
     });
+    router.push(`/album-review?${params.toString()}`);
   };
 
   useEffect(() => {

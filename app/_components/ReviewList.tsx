@@ -14,17 +14,15 @@ interface ReviewListProps {
 const ReviewList: React.FC<ReviewListProps> = ({ reviews, onRefresh, refreshing }) => {
   const router = useRouter();
 
-  const handleEditReview = (review: Resenha) => {
-    router.push({
-      pathname: '/album-review',
-      params: {
-        albumName: encodeURIComponent(review.album_name),
-        artist: encodeURIComponent(review.artist),
-        year: review.year.toString(),
-        trackCount: review.track_count.toString(),
-        coverUrl: encodeURIComponent(review.album_cover || '')
-      }
+  const handleReviewPress = (review: Review) => {
+    const params = new URLSearchParams({
+      albumName: review.album_name,
+      artist: review.artist,
+      year: review.year?.toString() || new Date().getFullYear().toString(),
+      trackCount: '10',
+      coverUrl: review.album_cover || ''
     });
+    router.push(`/album-review?${params.toString()}`);
   };
 
   const renderReviewItem = ({ item }: { item: Resenha }) => (

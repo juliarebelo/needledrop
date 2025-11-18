@@ -2,10 +2,11 @@ import { Feather } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   FlatList,
   Image,
   Modal,
@@ -54,6 +55,7 @@ export default function PerfilScreen() {
   const [favoritesModalVisible, setFavoritesModalVisible] = useState(false);
   const [allReviews, setAllReviews] = useState<Review[]>([]);
   const [selectedFavorites, setSelectedFavorites] = useState<string[]>([]);
+  const shakeAnimation = useRef(new Animated.Value(0)).current;
 
   useFocusEffect(
     useCallback(() => {
@@ -121,6 +123,15 @@ export default function PerfilScreen() {
     }
   };
 
+  const shakeScreen = () => {
+    Animated.sequence([
+      Animated.timing(shakeAnimation, { toValue: 10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnimation, { toValue: -10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnimation, { toValue: 10, duration: 50, useNativeDriver: true }),
+      Animated.timing(shakeAnimation, { toValue: 0, duration: 50, useNativeDriver: true }),
+    ]).start();
+  };
+
   const toggleFavorite = async (reviewId: string) => {
     if (!user?.id) return;
 
@@ -144,11 +155,9 @@ export default function PerfilScreen() {
         setSelectedFavorites(prev => [...prev, reviewId]);
         const updatedFavorites = await FavoritesService.getUserFavorites(user.id);
         setFavoriteAlbums(updatedFavorites);
-      } else {
-        Alert.alert('Erro', 'Não foi possível adicionar aos favoritos');
       }
     } else {
-      Alert.alert('Limite atingido', 'Você pode selecionar no máximo 3 álbuns favoritos');
+      shakeScreen();
     }
   };
 
@@ -159,10 +168,8 @@ export default function PerfilScreen() {
       const favoritesData = await FavoritesService.getUserFavorites(user.id);
       setFavoriteAlbums(favoritesData);
       setFavoritesModalVisible(false);
-      Alert.alert('Sucesso!', 'Álbuns favoritos atualizados');
     } catch (error: any) {
       console.error('Erro ao salvar favoritos:', error);
-      Alert.alert('Erro', 'Não foi possível salvar os favoritos');
     }
   };
 
@@ -257,7 +264,6 @@ export default function PerfilScreen() {
       console.log('URL pública:', publicUrl);
       setAvatarUrl(publicUrl);
       
-      Alert.alert('Sucesso', 'Foto atualizada!');
     } catch (error: any) {
       console.error('Erro completo ao fazer upload:', error);
       Alert.alert('Erro', error?.message || 'Não foi possível fazer upload da imagem');
@@ -277,7 +283,6 @@ export default function PerfilScreen() {
           style: 'destructive',
           onPress: () => {
             setAvatarUrl(null);
-            Alert.alert('Sucesso', 'Foto removida! Lembre-se de salvar as alterações.');
           }
         }
       ]
@@ -303,7 +308,6 @@ export default function PerfilScreen() {
 
       await fetchUserData();
       setEditModalVisible(false);
-      Alert.alert('Sucesso', 'Perfil atualizado!');
     } catch (error) {
       console.error('Erro ao salvar perfil:', error);
       Alert.alert('Erro', 'Não foi possível salvar as alterações');
@@ -438,7 +442,7 @@ export default function PerfilScreen() {
               <TouchableOpacity onPress={() => setFavoritesModalVisible(true)}>
                 <Feather name="edit-2" size={18} color="#ed0000ff" />
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => router.push('/minhas-resenhas')}>
+              <TouchableOpacity onPress={() => router.push('/(tabs)/minhas-resenhas')}>
                 <Text style={styles.seeAllText}>Ver todos</Text>
               </TouchableOpacity>
             </View>
@@ -470,7 +474,7 @@ export default function PerfilScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Avaliações recentes</Text>
-            <TouchableOpacity onPress={() => router.push('/minhas-resenhas')}>
+            <TouchableOpacity onPress={() => router.push('/(tabs)/minhas-resenhas')}>
               <Text style={styles.seeAllText}>Ver todas</Text>
             </TouchableOpacity>
           </View>
@@ -501,7 +505,12 @@ export default function PerfilScreen() {
         onRequestClose={() => setFavoritesModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.favoritesModalContent}>
+          <Animated.View 
+            style={[
+              styles.favoritesModalContent,
+              { transform: [{ translateX: shakeAnimation }] }
+            ]}
+          >
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Selecione seus Favoritos</Text>
               <TouchableOpacity onPress={() => setFavoritesModalVisible(false)}>
@@ -547,7 +556,7 @@ export default function PerfilScreen() {
             >
               <Text style={styles.saveButtonText}>Salvar Favoritos</Text>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
     </View>

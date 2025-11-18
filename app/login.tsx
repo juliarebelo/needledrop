@@ -46,8 +46,7 @@ export default function LoginScreen() {
             }
 
             if (data.user) {
-                Alert.alert('Sucesso', 'Login realizado com sucesso!');
-                router.push('/homepage');
+                router.replace('/(tabs)/homepage');
             }
 
         } catch (error) {

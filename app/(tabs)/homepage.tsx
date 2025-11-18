@@ -3,14 +3,16 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    FlatList, Image,
-    Modal,
-    RefreshControl,
-    ScrollView, StatusBar, StyleSheet, Text,
-    TextInput,
-    TouchableOpacity, View
+  ActivityIndicator,
+  Alert,
+  FlatList, Image,
+  Modal,
+  RefreshControl,
+  ScrollView, StatusBar, StyleSheet, Text,
+  TextInput,
+  TouchableOpacity, View
 } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { theme } from '../../constants/theme';
 import { RecomendacaoService } from '../../services/recomendacaoService';
 import { supabase } from '../../services/supabase';
@@ -58,7 +60,7 @@ const Header = ({ usuario }: { usuario: Usuario | null }) => {
 
 const PlaylistCard = React.memo(({ item, onDelete, onPress }: { 
   item: Playlist; 
-  onDelete: (id: string) => void;
+  onDelete: (id: string, titulo?: string) => void;
   onPress: (id: string) => void;
 }) => (
   <View style={styles.playlistCardContainer}>
@@ -70,7 +72,7 @@ const PlaylistCard = React.memo(({ item, onDelete, onPress }: {
       />
       <Text style={styles.playlistTitle} numberOfLines={2}>{item.titulo}</Text>
     </TouchableOpacity>
-    <TouchableOpacity onPress={() => onDelete(item.id)} style={styles.deleteButton}>
+    <TouchableOpacity onPress={() => onDelete(item.id, item.titulo)} style={styles.deleteButton}>
       <Feather name="x" size={20} color="#FF0000" />
     </TouchableOpacity>
   </View>
@@ -122,6 +124,7 @@ export default function Homepage() {
   const [favoritos, setFavoritos] = useState<string[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [novaPlaylistTitulo, setNovaPlaylistTitulo] = useState('');
+  const [showDashboard, setShowDashboard] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -136,22 +139,50 @@ export default function Homepage() {
     checkAuth();
   }, []);
 
-  const excluirPlaylist = useCallback(async (playlistId: string) => {
-    try {
-      const { error } = await supabase
-        .from('playlists')
-        .delete()
-        .eq('id', playlistId);
+  const excluirPlaylist = useCallback(async (playlistId: string, playlistTitulo?: string) => {
+    Alert.alert(
+      'Excluir Playlist',
+      `Tem certeza que deseja excluir a playlist "${playlistTitulo || 'esta playlist'}"?`,
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel'
+        },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Primeiro, excluir todas as músicas da playlist
+              const { error: musicasError } = await supabase
+                .from('playlist_musicas')
+                .delete()
+                .eq('playlist_id', playlistId);
 
-      if (error) {
-        console.error('Erro ao excluir playlist:', error);
-        return;
-      }
+              if (musicasError) {
+                console.error('Erro ao excluir músicas da playlist:', musicasError);
+                return;
+              }
 
-      setPlaylists(prev => prev.filter(playlist => playlist.id !== playlistId));
-    } catch (error) {
-      console.error('Erro ao excluir playlist:', error);
-    }
+              // Depois, excluir a playlist
+              const { error } = await supabase
+                .from('playlists')
+                .delete()
+                .eq('id', playlistId);
+
+              if (error) {
+                console.error('Erro ao excluir playlist:', error);
+                return;
+              }
+
+              setPlaylists(prev => prev.filter(playlist => playlist.id !== playlistId));
+            } catch (error) {
+              console.error('Erro ao excluir playlist:', error);
+            }
+          }
+        }
+      ]
+    );
   }, []);
 
   const criarPlaylist = useCallback(async () => {
@@ -207,16 +238,14 @@ export default function Homepage() {
   }, []);
 
   const handleAlbumPress = useCallback((album: Album) => {
-    router.push({
-      pathname: '/album-review',
-      params: {
-        albumName: encodeURIComponent(album.titulo),
-        artist: encodeURIComponent(album.artista),
-        coverUrl: encodeURIComponent(album.capaUrl || ''),
-        year: new Date().getFullYear().toString(),
-        trackCount: '10'
-      }
+    const params = new URLSearchParams({
+      albumName: album.titulo,
+      artist: album.artista,
+      coverUrl: album.capaUrl || '',
+      year: new Date().getFullYear().toString(),
+      trackCount: '10'
     });
+    router.push(`/album-review?${params.toString()}`);
   }, [router]);
 
   const AddPlaylistCard = () => (
@@ -279,6 +308,11 @@ export default function Homepage() {
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session?.user) {
+          // Recarregar recomendações quando voltar para a tela
+          const recomendacoesResult = await RecomendacaoService.getRecomendacoes(session.user.id);
+          setRecomendacoes(recomendacoesResult);
+          
+          // Carregar playlists
           const { data: playlistsData, error } = await supabase
             .from('playlists')
             .select('id, titulo, capa_url')
@@ -391,6 +425,20 @@ const onRefresh = useCallback(async () => {
       >
         <Header usuario={usuario} />
         
+        <TouchableOpacity 
+          style={styles.mlBanner}
+          onPress={() => router.push('/classificacao')}
+        >
+          <View style={styles.mlBannerContent}>
+            <Feather name="zap" size={24} color="#FFD700" />
+            <View style={styles.mlBannerText}>
+              <Text style={styles.mlBannerTitle}>Classificação de Músicas</Text>
+              <Text style={styles.mlBannerSubtitle}>Descubra a popularidade prevista</Text>
+            </View>
+            <Feather name="chevron-right" size={24} color="#FFFFFF" />
+          </View>
+        </TouchableOpacity>
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Minhas Playlists</Text>
           <FlatList
@@ -456,6 +504,50 @@ const onRefresh = useCallback(async () => {
                   <Text style={styles.loginButtonText}>Fazer Login</Text>
                 </TouchableOpacity>
               )}
+            </View>
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.dashboardHeader}>
+            <Text style={styles.sectionTitle}>Dashboard Analítico</Text>
+            <TouchableOpacity 
+              onPress={() => setShowDashboard(!showDashboard)}
+              style={styles.toggleButton}
+            >
+              <Feather 
+                name={showDashboard ? "chevron-up" : "chevron-down"} 
+                size={24} 
+                color="#FFFFFF" 
+              />
+            </TouchableOpacity>
+          </View>
+          {showDashboard && (
+            <View style={styles.dashboardContainer}>
+              <Text style={styles.dashboardInfo}>
+                Dashboard com análises e classificação de músicas
+              </Text>
+              <WebView
+                source={{ uri: 'http://localhost:8050' }}
+                style={styles.webview}
+                javaScriptEnabled={true}
+                domStorageEnabled={true}
+                startInLoadingState={true}
+                renderLoading={() => (
+                  <ActivityIndicator 
+                    size="large" 
+                    color="#FFFFFF" 
+                    style={styles.webviewLoader}
+                  />
+                )}
+                onError={(syntheticEvent) => {
+                  const { nativeEvent } = syntheticEvent;
+                  console.warn('WebView error: ', nativeEvent);
+                }}
+              />
+              <Text style={styles.dashboardNote}>
+                * Certifique-se de que o dashboard está rodando em http://localhost:8050
+              </Text>
             </View>
           )}
         </View>
@@ -643,5 +735,71 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  dashboardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  toggleButton: {
+    padding: 8,
+  },
+  dashboardContainer: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 20,
+  },
+  dashboardInfo: {
+    color: '#ccc',
+    fontSize: 14,
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  webview: {
+    height: 600,
+    borderRadius: 8,
+    backgroundColor: '#000',
+  },
+  webviewLoader: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: [{ translateX: -25 }, { translateY: -25 }],
+  },
+  dashboardNote: {
+    color: '#999',
+    fontSize: 12,
+    marginTop: 10,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  mlBanner: {
+    marginHorizontal: 20,
+    marginVertical: 15,
+    backgroundColor: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  mlBannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#151515ff',
+  },
+  mlBannerText: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  mlBannerTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 2,
+  },
+  mlBannerSubtitle: {
+    color: '#E0E0E0',
+    fontSize: 12,
   },
 });

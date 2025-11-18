@@ -27,6 +27,12 @@ export default function TabLayout() {
           href: null, 
         }}
       />
+      <Tabs.Screen
+        name="Playlist/metas"
+        options={{
+          href: null,
+        }}
+      />
       
     </Tabs>
   );

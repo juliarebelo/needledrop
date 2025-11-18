@@ -70,7 +70,7 @@ export default function PlaylistDetailScreen() {
       
       if (!session?.user) {
         Alert.alert('Erro', 'Você precisa estar logado');
-        router.back();
+        router.replace('/(tabs)/homepage');
         return;
       }
 
@@ -84,7 +84,7 @@ export default function PlaylistDetailScreen() {
       if (playlistError) {
         console.error('Erro ao buscar playlist:', playlistError);
         Alert.alert('Erro', 'Playlist não encontrada');
-        router.back();
+        router.replace('/(tabs)/homepage');
         return;
       }
 
@@ -171,7 +171,6 @@ const musicas = (musicasData || []).map((item: any) => ({
         setPlaylist(updatedPlaylist);
         setSearchQuery('');
         setShowSearch(false);
-        Alert.alert('Sucesso!', `${musica.album || musica.title} adicionado à playlist`);
       } catch (error: any) {
         console.error('Erro ao adicionar música:', error);
         Alert.alert('Erro', `Não foi possível adicionar a música: ${error?.message || 'Erro desconhecido'}`);
@@ -276,7 +275,6 @@ const musicas = (musicasData || []).map((item: any) => ({
       if (playlist) {
         setPlaylist({ ...playlist, capaUrl: publicUrl });
         setEditModalVisible(false);
-        Alert.alert('Sucesso', 'Capa da playlist atualizada!');
       }
     } catch (error: any) {
       console.error('Erro ao fazer upload:', error);
@@ -307,7 +305,6 @@ const musicas = (musicasData || []).map((item: any) => ({
                   ...playlist,
                   capaUrl: ''
                 });
-                Alert.alert('Sucesso', 'Capa padrão restaurada!');
               } catch (error) {
                 console.error('Erro ao restaurar capa:', error);
                 Alert.alert('Erro', 'Não foi possível restaurar a capa padrão');
@@ -393,8 +390,8 @@ const musicas = (musicasData || []).map((item: any) => ({
         }
       >
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Feather name="arrow-left" size={24} color="#FFFFFF" />
+        <TouchableOpacity onPress={() => router.push('/(tabs)/homepage')}>
+          <Feather name="arrow-left" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{playlist.titulo}</Text>
         <TouchableOpacity onPress={() => setShowSearch(!showSearch)}>

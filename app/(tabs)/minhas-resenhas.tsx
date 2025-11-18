@@ -3,17 +3,17 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Animated,
-    FlatList,
-    Image,
-    RefreshControl,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Animated,
+  FlatList,
+  Image,
+  RefreshControl,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { supabase } from '../../services/supabase';
 import StarRating from '../_components/StarRating';
@@ -146,7 +146,6 @@ export default function MinhasResenhasScreen() {
           .order('created_at', { ascending: false });
 
         if (error) throw error;
-        // Garante que rating seja number (numeric pode vir como string)
         const normalized = (data || []).map(r => ({
           ...r,
           rating: typeof r.rating === 'string' ? parseFloat(r.rating) : r.rating
@@ -165,16 +164,14 @@ export default function MinhasResenhasScreen() {
   };
 
   const handleEditReview = (review: Review) => {
-    router.push({
-      pathname: '/album-review',
-      params: {
-        albumName: encodeURIComponent(review.album_name),
-        artist: encodeURIComponent(review.artist),
-        year: review.year.toString(),
-        trackCount: '12',
-        coverUrl: encodeURIComponent(review.album_cover || '')
-      }
+    const params = new URLSearchParams({
+      albumName: review.album_name,
+      artist: review.artist,
+      year: review.year.toString(),
+      trackCount: '12',
+      coverUrl: review.album_cover || ''
     });
+    router.push(`/album-review?${params.toString()}`);
   };
 
   const handleDeleteReview = (reviewId: string, albumName: string) => {
@@ -199,7 +196,6 @@ export default function MinhasResenhasScreen() {
               if (error) throw error;
 
               setReviews(reviews.filter(r => r.id !== reviewId));
-              Alert.alert('Sucesso', 'Resenha removida com sucesso');
             } catch (error) {
               console.error('Erro ao remover resenha:', error);
               Alert.alert('Erro', 'Não foi possível remover a resenha');
@@ -225,7 +221,7 @@ export default function MinhasResenhasScreen() {
       
       <View style={styles.header}>
         <TouchableOpacity 
-          onPress={() => router.back()} 
+          onPress={() => router.push('/(tabs)/homepage')} 
           style={styles.backButton}
         >
           <Feather name="arrow-left" size={24} color="#fff" />
