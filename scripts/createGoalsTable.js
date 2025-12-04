@@ -9,7 +9,6 @@ async function checkAndCreateTable() {
   try {
     console.log('🔍 Verificando se a tabela user_goals existe...');
     
-    // Tentar fazer uma query na tabela
     const { data, error } = await supabase
       .from('user_goals')
       .select('*')

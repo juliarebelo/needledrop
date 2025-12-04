@@ -1,6 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -9,79 +8,47 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
-    View
+    View,
 } from 'react-native';
+
+  import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { FeatureSlider } from './_components/FeatureSlider';
 
-interface ClassificationResult {
-  prediction: string;
-  probabilities: {
-    Baixa: number;
-    Média: number;
-    Alta: number;
-  };
-  confidence: number;
-}
+const API_URL = process.env.EXPO_PUBLIC_ML_API_URL;
 
-const getApiUrl = () => {
-  // Usar API de produção se configurada
-  const prodUrl = process.env.EXPO_PUBLIC_ML_API_URL;
-  if (prodUrl) {
-    return prodUrl;
-  }
-  
-  // Fallback para desenvolvimento local
-  if (Platform.OS === 'android') {
-    return 'http://10.0.2.2:5000/api';
-  }
-  return 'http://192.168.0.36:5000/api';
-};
-
-const API_URL = getApiUrl();
-
-export default function ClassificacaoScreen() {
+export default function Classificacao() {
   const router = useRouter();
-  const [modelStatus, setModelStatus] = useState<'loading' | 'online' | 'offline'>('loading');
-  
-  const [danceability, setDanceability] = useState(0.5);
-  const [energy, setEnergy] = useState(0.5);
-  const [valence, setValence] = useState(0.5);
-  const [tempo, setTempo] = useState(120);
-  const [loudness, setLoudness] = useState(-5);
-  const [speechiness, setSpeechiness] = useState(0.1);
-  const [acousticness, setAcousticness] = useState(0.3);
-  const [instrumentalness, setInstrumentalness] = useState(0.0);
-  const [liveness, setLiveness] = useState(0.1);
-  const [duration, setDuration] = useState(200000);
-  
+  const [danceability, setDanceability] = useState(0);
+  const [energy, setEnergy] = useState(0);
+  const [valence, setValence] = useState(0);
+  const [speechiness, setSpeechiness] = useState(0);
+  const [instrumentalness, setInstrumentalness] = useState(0);
   const [classifying, setClassifying] = useState(false);
-  const [result, setResult] = useState<ClassificationResult | null>(null);
+  type ResultType = {
+    prediction: string;
+    confidence: number;
+    probabilities: Record<string, number>;
+  };
+  const [result, setResult] = useState<ResultType | null>(null);
+  const [modelStatus, setModelStatus] = useState('loading');
 
   useEffect(() => {
     checkModelStatus();
   }, []);
 
-  const checkModelStatus = async () => {
+  async function checkModelStatus() {
     try {
-      console.log('Verificando status da API em:', API_URL);
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
-      
-      const response = await fetch(`${API_URL}/status`, {
-        signal: controller.signal,
-      });
+      const response = await fetch(`${API_URL}/status`, { signal: controller.signal });
       clearTimeout(timeoutId);
-      
       const data = await response.json();
-      console.log('Resposta da API:', data);
       setModelStatus(data.model_loaded ? 'online' : 'offline');
     } catch (error) {
       setModelStatus('offline');
-      if (error instanceof Error && error.name !== 'AbortError') {
-        console.log('API não disponível:', API_URL);
-      }
     }
-  };
+  }
 
   const handleClassify = async () => {
     if (modelStatus !== 'online') {
@@ -105,13 +72,13 @@ export default function ClassificacaoScreen() {
           danceability,
           energy,
           valence,
-          tempo,
-          loudness,
+          tempo: 120,
+          loudness: -5,
           speechiness,
-          acousticness,
+          acousticness: 0.3,
           instrumentalness,
-          liveness,
-          duration_ms: duration,
+          liveness: 0.1,
+          duration_ms: 200000,
         }),
       });
 
@@ -171,113 +138,50 @@ export default function ClassificacaoScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>🎵 Características Principais</Text>
-          
           <FeatureSlider
             label="Dançabilidade"
             value={danceability}
             onValueChange={setDanceability}
             min={0}
-            max={1}
-            step={0.01}
-            icon="music"
+            max={0.1}
+            step={0.001}
+            color="#27AE60"
           />
-
           <FeatureSlider
             label="Energia"
             value={energy}
             onValueChange={setEnergy}
             min={0}
-            max={1}
-            step={0.01}
-            icon="zap"
+            max={0.1}
+            step={0.001}
+            color="#F39C12"
           />
-
           <FeatureSlider
             label="Tom Emocional"
             value={valence}
             onValueChange={setValence}
             min={0}
-            max={1}
-            step={0.01}
-            icon="smile"
+            max={0.1}
+            step={0.001}
+            color="#8B0000"
           />
-
-          <FeatureSlider
-            label="Tempo"
-            value={tempo}
-            onValueChange={setTempo}
-            min={40}
-            max={200}
-            step={1}
-            icon="activity"
-            unit=" BPM"
-          />
-
-          <FeatureSlider
-            label="Volume"
-            value={loudness}
-            onValueChange={setLoudness}
-            min={-60}
-            max={0}
-            step={0.5}
-            icon="volume-2"
-            unit=" dB"
-          />
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>🎼 Características Secundárias</Text>
-          
           <FeatureSlider
             label="Vocal / Fala"
             value={speechiness}
             onValueChange={setSpeechiness}
             min={0}
-            max={1}
-            step={0.01}
-            icon="mic"
+            max={0.1}
+            step={0.001}
+            color="#2980B9"
           />
-
-          <FeatureSlider
-            label="Acústico"
-            value={acousticness}
-            onValueChange={setAcousticness}
-            min={0}
-            max={1}
-            step={0.01}
-            icon="headphones"
-          />
-
           <FeatureSlider
             label="Instrumental"
             value={instrumentalness}
             onValueChange={setInstrumentalness}
             min={0}
-            max={1}
-            step={0.01}
-            icon="radio"
-          />
-
-          <FeatureSlider
-            label="Ao Vivo"
-            value={liveness}
-            onValueChange={setLiveness}
-            min={0}
-            max={1}
-            step={0.01}
-            icon="users"
-          />
-
-          <FeatureSlider
-            label="Duração"
-            value={duration}
-            onValueChange={setDuration}
-            min={30000}
-            max={600000}
-            step={1000}
-            icon="clock"
-            unit=" ms"
+            max={0.1}
+            step={0.001}
+            color="#9B59B6"
           />
         </View>
 
@@ -289,25 +193,19 @@ export default function ClassificacaoScreen() {
           {classifying ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <>
-              <Feather name="zap" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-              <Text style={styles.classifyButtonText}>Classificar</Text>
-            </>
+            <Text style={styles.classifyButtonText}>Classificar</Text>
           )}
         </TouchableOpacity>
 
         {result && (
           <View style={styles.resultCard}>
             <Text style={styles.resultTitle}>Resultado da Classificação</Text>
-            
-            <View style={[styles.predictionBadge, { backgroundColor: getColorForClass(result.prediction) }]}>
+            <View style={[styles.predictionBadge, { backgroundColor: getColorForClass(result.prediction) }]}> 
               <Text style={styles.predictionText}>Popularidade: {result.prediction}</Text>
             </View>
-
             <Text style={styles.confidenceText}>
               Confiança: {(result.confidence * 100).toFixed(1)}%
             </Text>
-
             <View style={styles.probabilitiesContainer}>
               <Text style={styles.probabilitiesTitle}>Probabilidades:</Text>
               {Object.entries(result.probabilities).map(([className, prob]) => (
@@ -318,13 +216,13 @@ export default function ClassificacaoScreen() {
                       style={[
                         styles.probabilityBar, 
                         { 
-                          width: `${prob * 100}%`,
+                          width: `${Number(prob) * 100}%`,
                           backgroundColor: getColorForClass(className)
                         }
                       ]} 
                     />
                   </View>
-                  <Text style={styles.probabilityValue}>{(prob * 100).toFixed(1)}%</Text>
+                  <Text style={styles.probabilityValue}>{(Number(prob) * 100).toFixed(1)}%</Text>
                 </View>
               ))}
             </View>
@@ -583,5 +481,16 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginLeft: 8,
     fontWeight: 'bold',
+  },
+  popularityHint: {
+    backgroundColor: '#2C2C2C',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 10,
+  },
+  hintText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    textAlign: 'center',
   },
 });

@@ -12,7 +12,6 @@ import {
   TextInput,
   TouchableOpacity, View
 } from 'react-native';
-import { WebView } from 'react-native-webview';
 import { theme } from '../../constants/theme';
 import { RecomendacaoService } from '../../services/recomendacaoService';
 import { supabase } from '../../services/supabase';
@@ -504,50 +503,6 @@ const onRefresh = useCallback(async () => {
                   <Text style={styles.loginButtonText}>Fazer Login</Text>
                 </TouchableOpacity>
               )}
-            </View>
-          )}
-        </View>
-
-        <View style={styles.section}>
-          <View style={styles.dashboardHeader}>
-            <Text style={styles.sectionTitle}>Dashboard Analítico</Text>
-            <TouchableOpacity 
-              onPress={() => setShowDashboard(!showDashboard)}
-              style={styles.toggleButton}
-            >
-              <Feather 
-                name={showDashboard ? "chevron-up" : "chevron-down"} 
-                size={24} 
-                color="#FFFFFF" 
-              />
-            </TouchableOpacity>
-          </View>
-          {showDashboard && (
-            <View style={styles.dashboardContainer}>
-              <Text style={styles.dashboardInfo}>
-                Dashboard com análises e classificação de músicas
-              </Text>
-              <WebView
-                source={{ uri: 'http://localhost:8050' }}
-                style={styles.webview}
-                javaScriptEnabled={true}
-                domStorageEnabled={true}
-                startInLoadingState={true}
-                renderLoading={() => (
-                  <ActivityIndicator 
-                    size="large" 
-                    color="#FFFFFF" 
-                    style={styles.webviewLoader}
-                  />
-                )}
-                onError={(syntheticEvent) => {
-                  const { nativeEvent } = syntheticEvent;
-                  console.warn('WebView error: ', nativeEvent);
-                }}
-              />
-              <Text style={styles.dashboardNote}>
-                * Certifique-se de que o dashboard está rodando em http://localhost:8050
-              </Text>
             </View>
           )}
         </View>

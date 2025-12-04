@@ -39,9 +39,8 @@ export const GoalService = {
     } catch (error: any) {
       console.error('Erro ao criar meta:', error);
       
-      // Retornar um erro mais informativo
       if (error.message === 'Usuário não autenticado') {
-        throw error; // Propagar erro de autenticação
+        throw error;
       }
       
       return null;
