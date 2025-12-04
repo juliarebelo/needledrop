@@ -40,6 +40,72 @@ interface FavoriteAlbum {
   album_cover: string;
 }
 
+function RatingHistogram({ reviews }: { reviews: Review[] }) {
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const ratings = [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
+  const counts = ratings.map((rating) => {
+    return reviews.filter((r) => {
+      const rounded = Math.round(r.rating * 2) / 2;
+      return rounded === rating;
+    }).length;
+  });
+  const maxCount = Math.max(...counts, 1);
+
+  const handleBarPress = (index: number) => {
+    if (selectedIndex === index) {
+      setSelectedIndex(null);
+    } else {
+      setSelectedIndex(index);
+    }
+  };
+
+  const getStarsString = (rating: number) => {
+    const fullStars = Math.floor(rating);
+    const hasHalf = rating % 1 !== 0;
+    return '★'.repeat(fullStars) + (hasHalf ? '½' : '');
+  };
+
+  return (
+    <View style={styles.histogramContainer}>
+      {selectedIndex === null ? (
+        <Text style={styles.histogramSideLabel}>★</Text>
+      ) : (
+        <View style={styles.histogramSideLabelEmpty} />
+      )}
+      <View style={styles.histogramBarArea}>
+        {ratings.map((rating, i) => (
+          <TouchableOpacity 
+            key={i} 
+            style={styles.histogramBarWrapper}
+            onPress={() => handleBarPress(i)}
+            activeOpacity={0.7}
+          >
+            <View
+              style={[
+                styles.histogramBar,
+                {
+                  height: maxCount > 0 ? Math.max((counts[i] / maxCount) * 70, 4) : 4,
+                },
+                selectedIndex === i && styles.histogramBarSelected,
+              ]}
+            />
+          </TouchableOpacity>
+        ))}
+      </View>
+      <View style={styles.histogramRightLabel}>
+        {selectedIndex !== null ? (
+          <>
+            <Text style={styles.histogramCountText}>{counts[selectedIndex]}</Text>
+            <Text style={styles.histogramStarsText}>{getStarsString(ratings[selectedIndex])}</Text>
+          </>
+        ) : (
+          <Text style={styles.histogramSideLabel}>★★★★★</Text>
+        )}
+      </View>
+    </View>
+  );
+}
+
 export default function PerfilScreen() {
   const router = useRouter();
   const navigation = useNavigation<any>();
@@ -81,24 +147,26 @@ export default function PerfilScreen() {
       if (session?.user) {
         setNewName(session.user.user_metadata?.name || '');
         setAvatarUrl(session.user.user_metadata?.avatar_url || null);
-      }
 
-      if (session?.user) {
-        const { data: reviewsData } = await supabase
-          .from('resenhas')
-          .select('*')
-          .eq('user_id', session.user.id)
-          .order('created_at', { ascending: false })
-          .limit(3);
+        // Fazer todas as requisições em paralelo
+        const [reviewsResult, allReviewsResult, favoritesData, favoriteIds] = await Promise.all([
+          supabase
+            .from('resenhas')
+            .select('*')
+            .eq('user_id', session.user.id)
+            .order('created_at', { ascending: false })
+            .limit(3),
+          supabase
+            .from('resenhas')
+            .select('*')
+            .eq('user_id', session.user.id)
+            .order('rating', { ascending: false }),
+          FavoritesService.getUserFavorites(session.user.id),
+          FavoritesService.getFavoriteIds(session.user.id)
+        ]);
 
-        const { data: allReviewsData } = await supabase
-          .from('resenhas')
-          .select('*')
-          .eq('user_id', session.user.id)
-          .order('rating', { ascending: false });
-
-        const favoritesData = await FavoritesService.getUserFavorites(session.user.id);
-        const favoriteIds = await FavoritesService.getFavoriteIds(session.user.id);
+        const reviewsData = reviewsResult.data;
+        const allReviewsData = allReviewsResult.data;
         
         if (favoritesData.length > 0) {
           setFavoriteAlbums(favoritesData);
@@ -316,6 +384,14 @@ export default function PerfilScreen() {
     }
   };
 
+  const averageRating =
+    allReviews.length > 0
+      ? (
+          allReviews.reduce((sum, review) => sum + (review.rating || 0), 0) /
+          allReviews.length
+        ).toFixed(2)
+      : null;
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
@@ -447,7 +523,7 @@ export default function PerfilScreen() {
               </TouchableOpacity>
             </View>
           </View>
-          
+
           {favoriteAlbums.length > 0 ? (
             <FlatList
               data={favoriteAlbums}
@@ -469,6 +545,18 @@ export default function PerfilScreen() {
               </TouchableOpacity>
             </View>
           )}
+
+          <View style={styles.averageRatingContainer}>
+            <Text style={styles.averageRatingLabel}>Média das notas:</Text>
+            <Text style={styles.averageRatingValue}>
+              {averageRating !== null ? `${averageRating} / 5` : '—'}
+            </Text>
+          </View>
+
+          <View style={styles.ratingHistogramContainer}>
+            <Text style={styles.histogramTitle}>Frequência de Avaliações por Estrelas</Text>
+            <RatingHistogram reviews={allReviews} />
+          </View>
         </View>
 
         <View style={styles.section}>
@@ -568,6 +656,97 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#3c0606ff',
   },
+  ratingHistogramContainer: {
+    marginTop: 20,
+    marginBottom: 10,
+    alignItems: 'center',
+    backgroundColor: '#4a1515',
+    borderRadius: 12,
+    paddingVertical: 20,
+    paddingHorizontal: 12,
+  },
+  histogramTitle: {
+    color: '#d4a5a5',
+    fontSize: 15,
+    fontWeight: '500',
+    marginBottom: 25,
+    textAlign: 'center',
+  },
+  histogramContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    width: '100%',
+    paddingBottom: 7,
+  },
+  histogramSideLabel: {
+    color: '#d4a5a5',
+    fontSize: 11,
+    paddingBottom: 2,
+    minWidth: 40,
+    textAlign: 'center',
+  },
+  histogramBarArea: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    flex: 1,
+    height: 80,
+    marginHorizontal: 15,
+    gap: 3,
+  },
+  histogramBarWrapper: {
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  histogramBar: {
+    width: 22,
+    borderRadius: 2,
+    backgroundColor: '#d4a5a5',
+  },
+  histogramBarSelected: {
+    backgroundColor: '#8b2020',
+  },
+  histogramSideLabelEmpty: {
+    minWidth: 40,
+  },
+  histogramRightLabel: {
+    minWidth: 50,
+    alignItems: 'flex-end',
+    justifyContent: 'flex-end',
+    paddingBottom: 2,
+  },
+  histogramCountText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'right',
+  },
+  histogramStarsText: {
+    color: '#FFD700',
+    fontSize: 12,
+    fontWeight: 'bold',
+    textAlign: 'right',
+  },
+  averageRatingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 18,
+    marginBottom: 5,
+    gap: 8,
+  },
+  averageRatingLabel: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+    marginRight: 6,
+  },
+  averageRatingValue: {
+    color: '#FFD700',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
   scrollView: {
     flex: 1,
   },
@@ -595,7 +774,7 @@ const styles = StyleSheet.create({
   },
   menuButton: {
     position: 'absolute',
-    top: 20,
+    top: 35,
     left: 20,
     backgroundColor: '#682626ff',
     padding: 10,
@@ -694,7 +873,7 @@ const styles = StyleSheet.create({
   },
   editButton: {
     position: 'absolute',
-    top: 20,
+    top: 35,
     right: 20,
     backgroundColor: '#682626ff',
     padding: 10,

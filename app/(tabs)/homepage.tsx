@@ -3,14 +3,14 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  FlatList, Image,
-  Modal,
-  RefreshControl,
-  ScrollView, StatusBar, StyleSheet, Text,
-  TextInput,
-  TouchableOpacity, View
+    ActivityIndicator,
+    Alert,
+    FlatList, Image,
+    Modal,
+    RefreshControl,
+    ScrollView, StatusBar, StyleSheet, Text,
+    TextInput,
+    TouchableOpacity, View
 } from 'react-native';
 import { theme } from '../../constants/theme';
 import { RecomendacaoService } from '../../services/recomendacaoService';
@@ -83,16 +83,12 @@ const AlbumListItem = React.memo(({ item, isFavorito, onToggleFavorito, onPress 
   onToggleFavorito: (id: string) => void;
   onPress: (item: Album) => void;
 }) => {
-  console.log('Renderizando álbum:', item.titulo, 'Capa URL:', item.capaUrl);
-  
   return (
     <TouchableOpacity style={styles.albumItem} onPress={() => onPress(item)}>
       <Image 
         source={item.capaUrl ? { uri: item.capaUrl } : PLAYLIST_DEFAULT_IMAGE} 
         style={styles.albumImage}
         resizeMode="cover"
-        onError={(error) => console.log('Erro ao carregar imagem:', item.titulo, error.nativeEvent)}
-        onLoad={() => console.log('Imagem carregada:', item.titulo)}
       />
       <View style={styles.albumTextContainer}>
         <Text style={styles.albumTitle} numberOfLines={1}>{item.titulo}</Text>
@@ -125,18 +121,7 @@ export default function Homepage() {
   const [novaPlaylistTitulo, setNovaPlaylistTitulo] = useState('');
   const [showDashboard, setShowDashboard] = useState(false);
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      console.log('=== DEBUG SESSÃO ===');
-      console.log('Tem sessão?', !!session);
-      console.log('Usuário:', session?.user);
-      console.log('ID do usuário:', session?.user?.id);
-      console.log('Email:', session?.user?.email);
-      console.log('==============');
-    };
-    checkAuth();
-  }, []);
+
 
   const excluirPlaylist = useCallback(async (playlistId: string, playlistTitulo?: string) => {
     Alert.alert(
@@ -261,8 +246,6 @@ export default function Homepage() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
-      console.log('Sessão no inicializar:', session); // Debug
-      
       if (session?.user) {
         setUsuario({
           id: session.user.id,
@@ -274,7 +257,6 @@ export default function Homepage() {
         const recomendacoesResult = await RecomendacaoService.getRecomendacoes(session.user.id);
         setRecomendacoes(recomendacoesResult);
         setLoadingRecomendacoes(false);
-        console.log('Recomendações carregadas:', recomendacoesResult.length);
         
       } else {
         setUsuario({
