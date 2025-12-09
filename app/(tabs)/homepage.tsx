@@ -3,14 +3,14 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList, Image,
-    Modal,
-    RefreshControl,
-    ScrollView, StatusBar, StyleSheet, Text,
-    TextInput,
-    TouchableOpacity, View
+  ActivityIndicator,
+  Alert,
+  FlatList, Image,
+  Modal,
+  RefreshControl,
+  ScrollView, StatusBar, StyleSheet, Text,
+  TextInput,
+  TouchableOpacity, View
 } from 'react-native';
 import { theme } from '../../constants/theme';
 import { RecomendacaoService } from '../../services/recomendacaoService';
@@ -405,20 +405,6 @@ const onRefresh = useCallback(async () => {
         nestedScrollEnabled={true}
       >
         <Header usuario={usuario} />
-        
-        <TouchableOpacity 
-          style={styles.mlBanner}
-          onPress={() => router.push('/classificacao')}
-        >
-          <View style={styles.mlBannerContent}>
-            <Feather name="zap" size={24} color="#FFD700" />
-            <View style={styles.mlBannerText}>
-              <Text style={styles.mlBannerTitle}>Classificação de Músicas</Text>
-              <Text style={styles.mlBannerSubtitle}>Descubra a popularidade prevista</Text>
-            </View>
-            <Feather name="chevron-right" size={24} color="#FFFFFF" />
-          </View>
-        </TouchableOpacity>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Minhas Playlists</Text>

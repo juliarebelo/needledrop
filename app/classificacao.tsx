@@ -1,37 +1,91 @@
 import { Feather } from '@expo/vector-icons';
-import React from 'react';
+import { useNavigation } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-
-  import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { theme } from '../constants/theme';
 import { FeatureSlider } from './_components/FeatureSlider';
+import { GlossarySection } from './_components/GlossarySection';
+import { MetricInfo } from './_components/MetricInfo';
 
 const API_URL = process.env.EXPO_PUBLIC_ML_API_URL;
 
+type ResultType = {
+  prediction: string;
+  confidence: number;
+  probabilities: Record<string, number>;
+};
+
+const METRICS = [
+  {
+    label: 'Dançabilidade',
+    key: 'danceability' as const,
+    color: '#27AE60',
+    icon: 'music',
+    description: 'Mede o quão adequada a música é para dançar',
+    example: 'EDM (0.9), Clássico (0.2)',
+    range: '0.0 - 1.0',
+  },
+  {
+    label: 'Energia',
+    key: 'energy' as const,
+    color: '#F39C12',
+    icon: 'zap',
+    description: 'Representa a intensidade e atividade da faixa',
+    example: 'Metal (0.9), Jazz (0.4)',
+    range: '0.0 - 1.0',
+  },
+  {
+    label: 'Tom Emocional',
+    key: 'valence' as const,
+    color: '#FF6B9D',
+    icon: 'smile',
+    description: 'Mede a positividade/felicidade da música',
+    example: 'Pop alegre (0.8), Blues (0.3)',
+    range: '0.0 - 1.0',
+  },
+  {
+    label: 'Vocal / Fala',
+    key: 'speechiness' as const,
+    color: '#2980B9',
+    icon: 'mic',
+    description: 'Detecta a presença de palavras faladas',
+    example: 'Rap (0.7), Clássico (0.1)',
+    range: '0.0 - 1.0',
+  },
+  {
+    label: 'Instrumental',
+    key: 'instrumentalness' as const,
+    color: '#9B59B6',
+    icon: 'disc',
+    description: 'Probabilidade de a faixa não conter vocais',
+    example: 'Sinfonia (0.9), Pop vocal (0.1)',
+    range: '0.0 - 1.0',
+  },
+];
+
 export default function Classificacao() {
   const router = useRouter();
-  const [danceability, setDanceability] = useState(0);
-  const [energy, setEnergy] = useState(0);
-  const [valence, setValence] = useState(0);
-  const [speechiness, setSpeechiness] = useState(0);
-  const [instrumentalness, setInstrumentalness] = useState(0);
+  const navigation = useNavigation<any>();
+  const [metrics, setMetrics] = useState({
+    danceability: 0.5,
+    energy: 0.5,
+    valence: 0.5,
+    speechiness: 0.5,
+    instrumentalness: 0.5,
+  });
   const [classifying, setClassifying] = useState(false);
-  type ResultType = {
-    prediction: string;
-    confidence: number;
-    probabilities: Record<string, number>;
-  };
   const [result, setResult] = useState<ResultType | null>(null);
   const [modelStatus, setModelStatus] = useState('loading');
+  const [showGlossary, setShowGlossary] = useState(false);
 
   useEffect(() => {
     checkModelStatus();
@@ -50,206 +104,298 @@ export default function Classificacao() {
     }
   }
 
+  const handleMetricChange = (key: keyof typeof metrics, value: number) => {
+    setMetrics((prev) => ({ ...prev, [key]: value }));
+  };
+
   const handleClassify = async () => {
-    if (modelStatus !== 'online') {
-      Alert.alert(
-        'Modelo Offline',
-        'O servidor de classificação não está rodando. Execute:\n\ncd analises\npython api_classificacao.py'
-      );
-      return;
+  if (modelStatus !== 'online') {
+    Alert.alert(
+      'Modelo Offline',
+      'O servidor de classificação não está rodando. Execute:\n\ncd analises\npython api_classificacao.py'
+    );
+    return;
+  }
+
+  setClassifying(true);
+  setResult(null);
+
+  try {
+    const payloadToSend = {
+      danceability: metrics.danceability,
+      energy: metrics.energy,
+      valence: metrics.valence,
+      speechiness: metrics.speechiness,
+      instrumentalness: metrics.instrumentalness,
+      tempo: 110,
+      loudness: -4, 
+      acousticness: 0.2, 
+      liveness: 0.15,
+      duration_ms: 210000, 
+    };
+    
+    console.log(' Enviando para API:', payloadToSend);
+
+    const response = await fetch(`${API_URL}/classify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payloadToSend),
+    });
+
+    const data = await response.json();
+    console.log('Resposta da API:', data);
+
+    if (response.ok) {
+      setResult(data);
+    } else {
+      Alert.alert('Erro', data.error || 'Falha na classificação');
     }
+  } catch (error) {
+    console.error(' Erro na requisição:', error);
+    Alert.alert('Erro de Conexão', 'Não foi possível conectar à API.');
+  } finally {
+    setClassifying(false);
+  }
+};
 
-    setClassifying(true);
-    setResult(null);
+  const getColorForClass = (className: string) => {
+    const lower = className.toLowerCase();
+    return lower.includes('alta') ? '#27AE60' :
+           lower.includes('media') || lower.includes('média') ? '#F39C12' : '#E74C3C';
+  };
 
-    try {
-      const response = await fetch(`${API_URL}/classify`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          danceability,
-          energy,
-          valence,
-          tempo: 120,
-          loudness: -5,
-          speechiness,
-          acousticness: 0.3,
-          instrumentalness,
-          liveness: 0.1,
-          duration_ms: 200000,
-        }),
-      });
-
-      const data = await response.json();
-      
-      console.log('Resposta da classificação:', data);
-
-      if (response.ok) {
-        setResult(data);
-      } else {
-        Alert.alert('Erro', data.error || 'Falha na classificação');
-      }
-    } catch (error) {
-      Alert.alert('Erro de Conexão', 'Não foi possível conectar à API. Certifique-se de que o servidor está rodando.');
-      console.error('Erro na classificação:', error);
-    } finally {
-      setClassifying(false);
+  const getPopularityDescription = (prediction: string) => {
+    const lower = prediction.toLowerCase();
+    if (lower.includes('alta')) {
+      return ' Esta música tem grande potencial de popularidade! Características de sucesso em streaming.';
+    } else if (lower.includes('media') || lower.includes('média')) {
+      return ' Popularidade moderada. A música tem bom potencial com ajustes nas métricas.';
+    } else {
+      return ' Popularidade baixa. Considere aumentar dançabilidade e energia para maior alcance.';
     }
   };
 
-  const getColorForClass = (className: string) => {
-    const lowerClass = className.toLowerCase();
-    switch (lowerClass) {
-      case 'baixa': return '#E74C3C';
-      case 'média': 
-      case 'media': return '#F39C12';
-      case 'alta': return '#27AE60';
-      default: return '#FFFFFF';
+  const getSuggestions = (prediction: string) => {
+    const lower = prediction.toLowerCase();
+    if (lower.includes('baixa')) {
+      return [
+        '↑ Aumentar Dançabilidade (mínimo 0.6)',
+        '↑ Aumentar Energia (mínimo 0.5)',
+        '✓ Adicionar mais vocais'
+      ];
+    } else if (lower.includes('media') || lower.includes('média')) {
+      return [
+        '↑ Aumentar ligeiramente Dançabilidade',
+        '✓ Manter Tom Emocional positivo',
+        '↑ Elevar Energia para 0.7+',
+      ];
+    } else {
+      return [
+        '✓ Manter características atuais',
+        '✓ Dançabilidade em nível ótimo',
+        '✓ Energia bem balanceada',
+      ];
     }
   };
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.push('/(tabs)/homepage')} style={styles.backButton}>
-          <Feather name="arrow-left" size={24} color="#FFFFFF" />
+        <TouchableOpacity
+          onPress={() => navigation.openDrawer()}
+          style={styles.menuButton}
+        >
+          <Feather name="menu" size={28} color={theme.colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Classificação de Música</Text>
+        <Text style={styles.headerTitle}>Preditor de Popularidade</Text>
         <View style={styles.statusContainer}>
-          <View style={[
-            styles.statusDot, 
-            { backgroundColor: modelStatus === 'online' ? '#27AE60' : '#E74C3C' }
-          ]} />
+          <View
+            style={[
+              styles.statusDot,
+              {
+                backgroundColor:
+                  modelStatus === 'online' ? theme.colors.primary : '#E74C3C',
+              },
+            ]}
+          />
           <Text style={styles.statusText}>
-            {modelStatus === 'loading' ? 'Verificando...' : 
-             modelStatus === 'online' ? 'Online' : 'Offline'}
+            {modelStatus === 'loading' ? '...' : modelStatus === 'online' ? '●' : '●'}
           </Text>
         </View>
       </View>
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.infoCard}>
-          <Feather name="info" size={20} color="#ff0000ff" />
-          <Text style={styles.infoText}>
-            Ajuste os controles para prever a popularidade da música
-          </Text>
+          <View style={styles.infoBadge}>
+            <Feather name="info" size={24} color={theme.colors.primary} />
+          </View>
+          <View style={styles.infoTextContainer}>
+            <Text style={styles.infoTitle}>Análise de Popularidade</Text>
+            <Text style={styles.infoText}>
+              Use um modelo de ML para prever o potencial de sua música em plataformas de streaming
+            </Text>
+            <TouchableOpacity
+              style={styles.glossaryToggle}
+              onPress={() => setShowGlossary(!showGlossary)}
+            >
+              <Text style={styles.glossaryToggleText}>
+                {showGlossary ? 'Ocultar' : 'Ver'} Glossário
+              </Text>
+              <Feather
+                name={showGlossary ? 'chevron-up' : 'chevron-down'}
+                size={14}
+                color={theme.colors.primary}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
 
-        <View style={styles.section}>
-          <FeatureSlider
-            label="Dançabilidade"
-            value={danceability}
-            onValueChange={setDanceability}
-            min={0}
-            max={0.1}
-            step={0.001}
-            color="#27AE60"
-          />
-          <FeatureSlider
-            label="Energia"
-            value={energy}
-            onValueChange={setEnergy}
-            min={0}
-            max={0.1}
-            step={0.001}
-            color="#F39C12"
-          />
-          <FeatureSlider
-            label="Tom Emocional"
-            value={valence}
-            onValueChange={setValence}
-            min={0}
-            max={0.1}
-            step={0.001}
-            color="#8B0000"
-          />
-          <FeatureSlider
-            label="Vocal / Fala"
-            value={speechiness}
-            onValueChange={setSpeechiness}
-            min={0}
-            max={0.1}
-            step={0.001}
-            color="#2980B9"
-          />
-          <FeatureSlider
-            label="Instrumental"
-            value={instrumentalness}
-            onValueChange={setInstrumentalness}
-            min={0}
-            max={0.1}
-            step={0.001}
-            color="#9B59B6"
-          />
-        </View>
+        {showGlossary && <GlossarySection />}
+        <View style={styles.metricsSection}>
+          <Text style={styles.metricsTitle}> Ajuste as Métricas</Text>
 
+          {METRICS.map((metric) => (
+            <View key={metric.key} style={styles.metricCard}>
+              <View style={styles.metricCardHeader}>
+                <View style={[styles.metricIcon, { backgroundColor: metric.color + '20' }]}>
+                  <Feather name={metric.icon as any} size={20} color={metric.color} />
+                </View>
+                <View style={styles.metricCardTitle}>
+                  <Text style={styles.metricLabel}>{metric.label}</Text>
+                  <Text style={styles.metricPercentage}>
+                    {(metrics[metric.key] * 100).toFixed(0)}%
+                  </Text>
+                </View>
+                <MetricInfo
+                  label={metric.label}
+                  description={metric.description}
+                  example={metric.example}
+                  range={metric.range}
+                />
+              </View>
+              <FeatureSlider
+                label=""
+                value={metrics[metric.key]}
+                onValueChange={(val) => handleMetricChange(metric.key, val)}
+                min={0}
+                max={1}
+                step={0.01}
+                color={metric.color}
+              />
+            </View>
+          ))}
+        </View>
         <TouchableOpacity
-          style={[styles.classifyButton, classifying && styles.classifyButtonDisabled]}
+          style={[
+            styles.classifyButton,
+            (classifying || modelStatus !== 'online') && styles.classifyButtonDisabled,
+          ]}
           onPress={handleClassify}
           disabled={classifying || modelStatus !== 'online'}
         >
           {classifying ? (
-            <ActivityIndicator color="#FFFFFF" />
+            <ActivityIndicator color={theme.colors.text} size="small" />
           ) : (
-            <Text style={styles.classifyButtonText}>Classificar</Text>
+            <>
+              <Feather name="zap" size={20} color={theme.colors.text} />
+              <Text style={styles.classifyButtonText}>Prever Agora</Text>
+            </>
           )}
         </TouchableOpacity>
 
         {result && (
           <View style={styles.resultCard}>
-            <Text style={styles.resultTitle}>Resultado da Classificação</Text>
-            <View style={[styles.predictionBadge, { backgroundColor: getColorForClass(result.prediction) }]}> 
-              <Text style={styles.predictionText}>Popularidade: {result.prediction}</Text>
+            <View
+              style={[
+                styles.resultBadge,
+                { backgroundColor: getColorForClass(result.prediction) },
+              ]}
+            >
+              <Text style={styles.resultLabel}>RESULTADO</Text>
+              <Text style={styles.resultValue}>{result.prediction}</Text>
+              <Text style={styles.resultConfidence}>
+                {(result.confidence * 100).toFixed(0)}% confiança
+              </Text>
             </View>
-            <Text style={styles.confidenceText}>
-              Confiança: {(result.confidence * 100).toFixed(1)}%
-            </Text>
-            <View style={styles.probabilitiesContainer}>
-              <Text style={styles.probabilitiesTitle}>Probabilidades:</Text>
+
+            <View style={styles.descriptionCard}>
+              <Text style={styles.descriptionText}>
+                {getPopularityDescription(result.prediction)}
+              </Text>
+            </View>
+
+            <View style={styles.confidenceSection}>
+              <Text style={styles.sectionLabel}>Certeza do Modelo</Text>
+              <View style={styles.confidenceBar}>
+                <View
+                  style={[
+                    styles.confidenceFill,
+                    {
+                      width: `${result.confidence * 100}%`,
+                      backgroundColor: getColorForClass(result.prediction),
+                    },
+                  ]}
+                />
+              </View>
+            </View>
+
+            <View style={styles.suggestionsSection}>
+              <Text style={styles.sectionLabel}> Sugestões de Melhoria</Text>
+              {getSuggestions(result.prediction).map((suggestion, index) => (
+                <View key={index} style={styles.suggestionItem}>
+                  <Text style={styles.suggestionText}>{suggestion}</Text>
+                </View>
+              ))}
+            </View>
+
+            <View style={styles.probabilitiesSection}>
+              <Text style={styles.sectionLabel}> Probabilidades</Text>
               {Object.entries(result.probabilities).map(([className, prob]) => (
-                <View key={className} style={styles.probabilityRow}>
-                  <Text style={styles.probabilityLabel}>{className}:</Text>
-                  <View style={styles.probabilityBarContainer}>
-                    <View 
+                <View key={className} style={styles.probabilityItem}>
+                  <View style={styles.probabilityInfo}>
+                    <Text style={styles.probabilityName}>{className}</Text>
+                    <Text style={styles.probabilityPercent}>
+                      {(Number(prob) * 100).toFixed(1)}%
+                    </Text>
+                  </View>
+                  <View style={styles.probabilityBarWrapper}>
+                    <View
                       style={[
-                        styles.probabilityBar, 
-                        { 
+                        styles.probabilityBar,
+                        {
                           width: `${Number(prob) * 100}%`,
-                          backgroundColor: getColorForClass(className)
-                        }
-                      ]} 
+                          backgroundColor: getColorForClass(className),
+                        },
+                      ]}
                     />
                   </View>
-                  <Text style={styles.probabilityValue}>{(Number(prob) * 100).toFixed(1)}%</Text>
                 </View>
               ))}
             </View>
           </View>
         )}
 
-        {modelStatus === 'offline' && (
+        {modelStatus === 'offline' && !result && (
           <View style={styles.offlineCard}>
-            <Feather name="alert-circle" size={24} color="#E74C3C" />
+            <Feather name="alert-circle" size={32} color="#E74C3C" />
+            <Text style={styles.offlineTitle}>Servidor Indisponível</Text>
             <Text style={styles.offlineText}>
-              Servidor offline. Execute no terminal:
+              Execute o servidor localmente:
             </Text>
             <View style={styles.codeBlock}>
               <Text style={styles.codeText}>cd analises</Text>
-              <Text style={styles.codeText}>C:/Users/ASUS/needledrop/.venv/Scripts/python.exe api_classificacao.py</Text>
+              <Text style={styles.codeText}>python api_classificacao.py</Text>
             </View>
-            <View style={styles.debugInfo}>
-              <Text style={styles.debugText}>Platform: {Platform.OS}</Text>
-              <Text style={styles.debugText}>API URL: {API_URL}</Text>
-              <Text style={styles.debugText}>Status: {modelStatus}</Text>
-            </View>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.retryButton}
               onPress={checkModelStatus}
             >
-              <Feather name="refresh-cw" size={16} color="#FFFFFF" />
-              <Text style={styles.retryButtonText}>Tentar Novamente</Text>
+              <Feather name="refresh-cw" size={16} color={theme.colors.text} />
+              <Text style={styles.retryButtonText}>Verificar Novamente</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -261,7 +407,7 @@ export default function Classificacao() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#300505',
+    backgroundColor: theme.colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -269,228 +415,317 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: 50,
     paddingBottom: 20,
-    paddingHorizontal: 20,
+    paddingHorizontal: theme.spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: '#4a1e1e',
+    borderBottomColor: theme.colors.border,
   },
-  backButton: {
+  menuButton: {
     padding: 8,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: theme.fontSizes.lg,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: theme.colors.text,
     flex: 1,
     textAlign: 'center',
   },
   statusContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
   },
   statusDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    marginRight: 6,
   },
   statusText: {
-    fontSize: 12,
-    color: '#FFFFFF',
+    fontSize: theme.fontSizes.sm,
+    color: theme.colors.text,
+    fontWeight: 'bold',
   },
   content: {
     flex: 1,
   },
   scrollContent: {
-    padding: 20,
+    padding: theme.spacing.lg,
+    paddingBottom: 40,
   },
   infoCard: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#521a1aff',
-    padding: 15,
-    borderRadius: 10,
+    alignItems: 'flex-start',
+    backgroundColor: theme.colors.surface,
+    padding: theme.spacing.lg,
+    borderRadius: 12,
     marginBottom: 20,
+    borderLeftWidth: 4,
+    borderLeftColor: theme.colors.primary,
   },
-  infoText: {
-    color: '#FFFFFF',
-    marginLeft: 10,
+  infoBadge: {
+    width: 50,
+    height: 50,
+    borderRadius: 10,
+    backgroundColor: theme.colors.primary + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: theme.spacing.lg,
+  },
+  infoTextContainer: {
     flex: 1,
-    fontSize: 14,
   },
-  section: {
-    marginBottom: 25,
-  },
-  sectionTitle: {
-    fontSize: 18,
+  infoTitle: {
+    color: theme.colors.text,
+    fontSize: theme.fontSizes.md,
     fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 15,
-  },
-  inputGroup: {
-    marginBottom: 15,
-  },
-  label: {
-    color: '#CCCCCC',
-    fontSize: 14,
     marginBottom: 6,
   },
-  input: {
-    backgroundColor: '#4a1e1e',
-    color: '#FFFFFF',
-    padding: 12,
-    borderRadius: 8,
-    fontSize: 16,
+  infoText: {
+    color: theme.colors.textSecondary,
+    fontSize: theme.fontSizes.sm,
+    lineHeight: 18,
+    marginBottom: 10,
+  },
+  glossaryToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  glossaryToggleText: {
+    color: theme.colors.primary,
+    fontSize: theme.fontSizes.sm,
+    fontWeight: '600',
+    marginRight: 4,
+  },
+  metricsSection: {
+    marginBottom: 20,
+  },
+  metricsTitle: {
+    color: theme.colors.text,
+    fontSize: theme.fontSizes.lg,
+    fontWeight: 'bold',
+    marginBottom: 15,
+  },
+  metricCard: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: 12,
+    padding: theme.spacing.lg,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#6a2e2e',
+    borderColor: theme.colors.border,
+  },
+  metricCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  metricIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: theme.spacing.md,
+  },
+  metricCardTitle: {
+    flex: 1,
+  },
+  metricLabel: {
+    color: theme.colors.text,
+    fontSize: theme.fontSizes.md,
+    fontWeight: '600',
+  },
+  metricPercentage: {
+    color: theme.colors.primary,
+    fontSize: theme.fontSizes.sm,
+    fontWeight: 'bold',
+    marginTop: 2,
   },
   classifyButton: {
-    backgroundColor: '#ff0000ff',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
-    borderRadius: 10,
+    backgroundColor: theme.colors.primary,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 12,
     marginVertical: 20,
+    gap: 10,
+    shadowColor: theme.colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
   classifyButtonDisabled: {
-    backgroundColor: '#666',
+    backgroundColor: theme.colors.textSecondary,
+    opacity: 0.6,
   },
   classifyButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
+    color: theme.colors.text,
+    fontSize: theme.fontSizes.lg,
     fontWeight: 'bold',
   },
   resultCard: {
-    backgroundColor: '#1a1a1a',
-    padding: 20,
-    borderRadius: 10,
+    backgroundColor: theme.colors.surface,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#333',
-  },
-  resultTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 15,
-    textAlign: 'center',
-  },
-  predictionBadge: {
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  predictionText: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  confidenceText: {
-    color: '#CCCCCC',
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  probabilitiesContainer: {
-    marginTop: 10,
-  },
-  probabilitiesTitle: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  probabilityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  probabilityLabel: {
-    color: '#CCCCCC',
-    width: 60,
-    fontSize: 14,
-  },
-  probabilityBarContainer: {
-    flex: 1,
-    height: 20,
-    backgroundColor: '#333',
-    borderRadius: 10,
+    borderColor: theme.colors.border,
     overflow: 'hidden',
-    marginHorizontal: 10,
+  },
+  resultBadge: {
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  resultLabel: {
+    color: theme.colors.text,
+    fontSize: theme.fontSizes.xs,
+    fontWeight: 'bold',
+    letterSpacing: 2,
+    marginBottom: 8,
+  },
+  resultValue: {
+    color: theme.colors.text,
+    fontSize: 40,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  resultConfidence: {
+    color: theme.colors.textSecondary,
+    fontSize: theme.fontSizes.sm,
+  },
+  descriptionCard: {
+    backgroundColor: theme.colors.background,
+    marginHorizontal: theme.spacing.lg,
+    marginTop: theme.spacing.lg,
+    padding: theme.spacing.lg,
+    borderRadius: 10,
+  },
+  descriptionText: {
+    color: theme.colors.text,
+    fontSize: theme.fontSizes.sm,
+    lineHeight: 20,
+  },
+  confidenceSection: {
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  sectionLabel: {
+    color: theme.colors.text,
+    fontSize: theme.fontSizes.md,
+    fontWeight: 'bold',
+    marginBottom: 12,
+  },
+  confidenceBar: {
+    height: 8,
+    backgroundColor: theme.colors.background,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  confidenceFill: {
+    height: '100%',
+  },
+  suggestionsSection: {
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  suggestionItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: theme.colors.background,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  suggestionText: {
+    color: theme.colors.text,
+    fontSize: theme.fontSizes.sm,
+  },
+  probabilitiesSection: {
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  probabilityItem: {
+    marginBottom: 16,
+  },
+  probabilityInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  probabilityName: {
+    color: theme.colors.text,
+    fontSize: theme.fontSizes.sm,
+    fontWeight: '500',
+  },
+  probabilityPercent: {
+    color: theme.colors.primary,
+    fontSize: theme.fontSizes.sm,
+    fontWeight: 'bold',
+  },
+  probabilityBarWrapper: {
+    height: 6,
+    backgroundColor: theme.colors.background,
+    borderRadius: 3,
+    overflow: 'hidden',
   },
   probabilityBar: {
     height: '100%',
-    borderRadius: 10,
-  },
-  probabilityValue: {
-    color: '#FFFFFF',
-    width: 50,
-    textAlign: 'right',
-    fontSize: 14,
   },
   offlineCard: {
-    backgroundColor: '#2a1010',
-    padding: 20,
-    borderRadius: 10,
-    borderWidth: 1,
+    backgroundColor: theme.colors.surface,
+    padding: theme.spacing.lg,
+    borderRadius: 12,
+    borderWidth: 2,
     borderColor: '#E74C3C',
     alignItems: 'center',
     marginTop: 20,
   },
+  offlineTitle: {
+    color: theme.colors.text,
+    fontSize: theme.fontSizes.lg,
+    fontWeight: 'bold',
+    marginTop: 12,
+    marginBottom: 8,
+  },
   offlineText: {
-    color: '#FFFFFF',
-    fontSize: 14,
+    color: theme.colors.textSecondary,
+    fontSize: theme.fontSizes.sm,
     textAlign: 'center',
-    marginVertical: 10,
+    marginBottom: 12,
   },
   codeBlock: {
-    backgroundColor: '#1a0a0a',
-    padding: 10,
-    borderRadius: 5,
-    marginVertical: 10,
+    backgroundColor: theme.colors.background,
+    padding: 12,
+    borderRadius: 8,
+    marginVertical: 12,
     width: '100%',
   },
   codeText: {
-    color: '#ff0000ff',
+    color: theme.colors.primary,
     fontFamily: 'monospace',
-    fontSize: 12,
-  },
-  debugInfo: {
-    backgroundColor: '#1a1a1a',
-    padding: 10,
-    borderRadius: 5,
-    marginVertical: 10,
-    width: '100%',
-  },
-  debugText: {
-    color: '#00FF00',
-    fontFamily: 'monospace',
-    fontSize: 11,
+    fontSize: theme.fontSizes.sm,
     marginVertical: 2,
   },
   retryButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#3498DB',
+    backgroundColor: theme.colors.primary,
     paddingVertical: 10,
-    paddingHorizontal: 15,
+    paddingHorizontal: 16,
     borderRadius: 8,
-    marginTop: 10,
+    marginTop: 12,
+    gap: 6,
   },
   retryButtonText: {
-    color: '#FFFFFF',
-    marginLeft: 8,
+    color: theme.colors.text,
     fontWeight: 'bold',
-  },
-  popularityHint: {
-    backgroundColor: '#2C2C2C',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 10,
-  },
-  hintText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    textAlign: 'center',
+    fontSize: theme.fontSizes.sm,
   },
 });

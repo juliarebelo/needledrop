@@ -1,6 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { DrawerContentScrollView } from '@react-navigation/drawer';
 import { useRouter } from 'expo-router';
+import React from 'react';
 import {
   Alert,
   StyleSheet,
@@ -26,7 +27,7 @@ export const CustomDrawerContent = (props: any) => {
           onPress: async () => {
             try {
               await supabase.auth.signOut();
-              router.replace('/');
+              router.replace('/login' as any);
             } catch (error) {
               console.error('Erro ao sair:', error);
               Alert.alert('Erro', 'Não foi possível sair da conta');
@@ -37,11 +38,11 @@ export const CustomDrawerContent = (props: any) => {
     );
   };
 
-  const navigateTo = (path: Parameters<ReturnType<typeof useRouter>['push']>[0]) => {
+  const navigateTo = (path: string) => {
     try {
       props?.navigation?.closeDrawer?.();
     } catch {}
-    router.push(path);
+    router.push(path as any);
   };
 
   return (
@@ -59,6 +60,14 @@ export const CustomDrawerContent = (props: any) => {
           >
             <Feather name="home" size={24} color={theme.colors.text} />
             <Text style={styles.drawerLinkText}>Homepage</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.drawerLink}
+            onPress={() => navigateTo('/classificacao')}
+          >
+            <Feather name="zap" size={24} color={theme.colors.text} />
+            <Text style={styles.drawerLinkText}>Preditor de Popularidade</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -83,14 +92,6 @@ export const CustomDrawerContent = (props: any) => {
           >
             <Feather name="search" size={24} color={theme.colors.text} />
             <Text style={styles.drawerLinkText}>Buscar</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.drawerLink}
-            onPress={() => navigateTo('/(tabs)/Playlist/metas')}
-          >
-            <Feather name="target" size={24} color={theme.colors.text} />
-            <Text style={styles.drawerLinkText}>Metas de Audição</Text>
           </TouchableOpacity>
         </View>
       </DrawerContentScrollView>
