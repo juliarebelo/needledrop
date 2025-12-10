@@ -8,8 +8,7 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-# Suporte para ambiente de produção
-MODEL_PATH = os.environ.get('MODEL_PATH', 'music_classifier_model.pkl')
+MODEL_PATH = os.environ.get('MODEL_PATH', os.path.join(os.path.dirname(__file__), 'music_classifier_model.pkl'))
 
 try:
     model_package = joblib.load(MODEL_PATH)
@@ -33,7 +32,7 @@ def status():
 def classify():
     """
     Classifica uma música baseado nas características
-    
+
     Body JSON esperado:
     {
         "danceability": 0.5,
@@ -50,58 +49,97 @@ def classify():
     """
     if not MODEL_LOADED:
         return jsonify({'error': 'Modelo não carregado'}), 500
-    
+
     try:
         data = request.json
-        
+
         feature_names = model_package['feature_names']
         features = []
-        
+        def _normalize_key(k: str):
+            return str(k).strip().lower().replace(' ', '_')
+
+        SYNONYMS = {
+            'tempo': ['tempo', 'bpm'],
+            'loudness': ['loudness', 'volume', 'db'],
+            'duration_ms': ['duration_ms', 'duration', 'durationms', 'duration_ms'],
+        }
+
         for feature in feature_names:
-            feature_lower = feature.lower()
-            if feature_lower == 'duration_ms':
-                value = data.get('duration_ms', data.get('Duration_ms', 200000))
-            else:
-                value = data.get(feature, data.get(feature_lower, data.get(feature.title(), 0.5)))
-            features.append(float(value))
-        
+            norm = _normalize_key(feature)
+
+            candidates = [
+                feature,
+                feature.lower(),
+                feature.title(),
+                feature.replace(' ', '_'),
+                feature.lower().replace(' ', '_'),
+                norm
+            ]
+
+            value = None
+            for c in candidates:
+                if c in data:
+                    value = data[c]
+                    break
+
+            if value is None:
+                for syn_key, aliases in SYNONYMS.items():
+                    if norm == syn_key:
+                        for alias in aliases:
+                            if alias in data:
+                                value = data[alias]
+                                break
+                    if value is not None:
+                        break
+
+            if value is None:
+                for k in list(data.keys()):
+                    if _normalize_key(k) == norm:
+                        value = data[k]
+                        break
+
+            if value is None:
+                value = 200000 if norm == 'duration_ms' else 0.5
+
+            try:
+                features.append(float(value))
+            except Exception:
+                print(f"Warning: não foi possível converter feature {feature} (valor: {value}), usando fallback")
+                features.append(200000.0 if norm == 'duration_ms' else 0.5)
+
+        print("Input features antes do scaler:", dict(zip(feature_names, features)))
+
         input_data = pd.DataFrame([features], columns=feature_names)
-        
+
         scaler = model_package['scaler']
         input_scaled = scaler.transform(input_data)
-        
+
         model = model_package['model']
-        prediction = model.predict(input_scaled)[0]
+        classes = model_package['classes']  # ['Alta', 'Baixa', 'Média']
+        
         probabilities = model.predict_proba(input_scaled)[0]
+
+        # Mapear probabilidades para as classes
+        class_to_prob = dict(zip(classes, probabilities))
         
-        print(f"Predição raw: {prediction}, tipo: {type(prediction)}")
+        # Encontrar a classe com maior probabilidade
+        predicted_class = max(class_to_prob, key=class_to_prob.get)
+        confidence = class_to_prob[predicted_class]
+        
         print(f"Probabilidades: {probabilities}")
+        print(f"Classes: {classes}")
+        print(f"Mapeamento: {class_to_prob}")
+        print(f"✓ Predição: {predicted_class} (confiança: {confidence:.3%})")
         
-        # Mapear classes - prediction pode ser int ou string
-        class_mapping = {0: 'Baixa', 1: 'Média', 2: 'Alta'}
-        
-        # Converter para int se necessário
-        if isinstance(prediction, str):
-            # Se for string, tentar mapear de volta para índice
-            reverse_map = {'Baixa': 0, 'Média': 1, 'Alta': 2}
-            pred_idx = reverse_map.get(prediction, 0)
-            predicted_class = prediction
-        else:
-            pred_idx = int(prediction)
-            predicted_class = class_mapping.get(pred_idx, f"Classe {pred_idx}")
-        
-        probs_dict = {
-            class_mapping[i]: float(prob) 
-            for i, prob in enumerate(probabilities)
-        }
-        
+        probs_dict = {str(k): float(v) for k, v in class_to_prob.items()}
+
         return jsonify({
             'prediction': predicted_class,
             'probabilities': probs_dict,
-            'confidence': float(max(probabilities)),
+            'confidence': float(confidence),
             'input_features': dict(zip(feature_names, features))
         })
-        
+
     except Exception as e:
         import traceback
         print(f"Erro na classificação: {e}")
@@ -113,7 +151,7 @@ def get_features():
     """Retorna lista de features esperadas"""
     if not MODEL_LOADED:
         return jsonify({'error': 'Modelo não carregado'}), 500
-    
+
     return jsonify({
         'features': model_package['feature_names'],
         'description': {
@@ -132,19 +170,19 @@ def get_features():
 
 if __name__ == '__main__':
     print("\n" + "="*60)
-    print("🎵 API de Classificação de Músicas")
+    print(" API de Classificação de Músicas")
     print("="*60)
     if MODEL_LOADED:
         print(f"✓ Modelo: {model_package['model'].__class__.__name__}")
         print(f"✓ Features: {len(model_package['feature_names'])}")
         print(f"✓ Classes: Baixa, Média, Alta")
-    print("\n🌐 Endpoints disponíveis:")
+    print("\nEndpoints disponíveis:")
     print("  GET  /api/status   - Status do modelo")
     print("  GET  /api/features - Lista de features")
     print("  POST /api/classify - Classificar música")
-    
+
     port = int(os.environ.get('PORT', 5000))
     print(f"\n▶  Rodando em: http://0.0.0.0:{port}")
     print("="*60 + "\n")
-    
+
     app.run(host='0.0.0.0', port=port, debug=False)

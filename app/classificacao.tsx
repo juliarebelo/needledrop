@@ -8,6 +8,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -82,6 +83,13 @@ export default function Classificacao() {
     speechiness: 0.5,
     instrumentalness: 0.5,
   });
+  const [textValues, setTextValues] = useState<Record<string, string>>(() => {
+    const initial: Record<string, string> = {};
+    METRICS.forEach((m) => {
+      initial[m.key] = String(Math.round((metrics as any)[m.key] * 100));
+    });
+    return initial;
+  });
   const [classifying, setClassifying] = useState(false);
   const [result, setResult] = useState<ResultType | null>(null);
   const [modelStatus, setModelStatus] = useState('loading');
@@ -108,55 +116,88 @@ export default function Classificacao() {
     setMetrics((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleClassify = async () => {
-  if (modelStatus !== 'online') {
-    Alert.alert(
-      'Modelo Offline',
-      'O servidor de classificação não está rodando. Execute:\n\ncd analises\npython api_classificacao.py'
-    );
-    return;
-  }
-
-  setClassifying(true);
-  setResult(null);
-
-  try {
-    const payloadToSend = {
-      danceability: metrics.danceability,
-      energy: metrics.energy,
-      valence: metrics.valence,
-      speechiness: metrics.speechiness,
-      instrumentalness: metrics.instrumentalness,
-      tempo: 110,
-      loudness: -4, 
-      acousticness: 0.2, 
-      liveness: 0.15,
-      duration_ms: 210000, 
-    };
-    
-    console.log(' Enviando para API:', payloadToSend);
-
-    const response = await fetch(`${API_URL}/classify`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payloadToSend),
-    });
-
-    const data = await response.json();
-    console.log('Resposta da API:', data);
-
-    if (response.ok) {
-      setResult(data);
-    } else {
-      Alert.alert('Erro', data.error || 'Falha na classificação');
+  const parseMetricInput = (input: string): number | null => {
+    if (!input) return null;
+    const s = input.trim();
+    if (s.endsWith('%')) {
+      const n = parseFloat(s.slice(0, -1));
+      if (isNaN(n)) return null;
+      return Math.max(0, Math.min(1, n / 100));
     }
-  } catch (error) {
-    console.error(' Erro na requisição:', error);
-    Alert.alert('Erro de Conexão', 'Não foi possível conectar à API.');
-  } finally {
-    setClassifying(false);
-  }
-};
+    const n = parseFloat(s);
+    if (isNaN(n)) return null;
+    if (n > 1 && n <= 100) return Math.max(0, Math.min(1, n / 100));
+    return Math.max(0, Math.min(1, n));
+  };
+
+  const handleMetricTextChange = (key: string, text: string) => {
+    setTextValues((prev) => ({ ...prev, [key]: text }));
+  };
+
+  const handleMetricTextEnd = (key: string) => {
+    const txt = textValues[key];
+    const parsed = parseMetricInput(txt);
+    if (parsed === null) {
+      setTextValues((prev) => ({ ...prev, [key]: String(Math.round((metrics as any)[key] * 100)) }));
+      return;
+    }
+    setMetrics((prev) => ({ ...prev, [key]: parsed }));
+    setTextValues((prev) => ({ ...prev, [key]: String(Math.round(parsed * 100)) }));
+  };
+
+  const handleClassify = async () => {
+    if (modelStatus !== 'online') {
+      Alert.alert(
+        'Modelo Offline',
+        'O servidor de classificação não está rodando. Execute:\n\ncd analises\npython api_classificacao.py'
+      );
+      return;
+    }
+
+    setClassifying(true);
+    setResult(null);
+
+    try {
+      const payloadToSend = {
+        danceability: metrics.danceability,
+        energy: metrics.energy,
+        valence: metrics.valence,
+        speechiness: metrics.speechiness,
+        instrumentalness: metrics.instrumentalness,
+        // defaults sensatos para as demais features
+        tempo: 110,
+        loudness: -4,
+        acousticness: 0.2,
+        liveness: 0.15,
+        duration_ms: 210000,
+      };
+
+      console.log('Enviando para API:', payloadToSend);
+
+      const response = await fetch(`${API_URL}/classify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payloadToSend),
+      });
+
+      const data = await response.json();
+      console.log('Resposta da API:', data);
+      if (data?.input_features) {
+        console.log('Input features usados pelo backend:', data.input_features);
+      }
+
+      if (response.ok) {
+        setResult(data);
+      } else {
+        Alert.alert('Erro', data.error || 'Falha na classificação');
+      }
+    } catch (error) {
+      console.error('Erro na requisição:', error);
+      Alert.alert('Erro de Conexão', 'Não foi possível conectar à API.');
+    } finally {
+      setClassifying(false);
+    }
+  };
 
   const getColorForClass = (className: string) => {
     const lower = className.toLowerCase();
@@ -266,9 +307,22 @@ export default function Classificacao() {
                 </View>
                 <View style={styles.metricCardTitle}>
                   <Text style={styles.metricLabel}>{metric.label}</Text>
-                  <Text style={styles.metricPercentage}>
-                    {(metrics[metric.key] * 100).toFixed(0)}%
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={styles.metricPercentage}>
+                      {(metrics[metric.key] * 100).toFixed(0)}%
+                    </Text>
+
+                    <TextInput
+                      style={styles.metricInput}
+                      value={textValues[metric.key]}
+                      onChangeText={(t) => handleMetricTextChange(metric.key, t)}
+                      onEndEditing={() => handleMetricTextEnd(metric.key)}
+                      keyboardType="numeric"
+                      returnKeyType="done"
+                      placeholder="ex: 80"
+                      placeholderTextColor={theme.colors.textSecondary}
+                    />
+                  </View>
                 </View>
                 <MetricInfo
                   label={metric.label}
@@ -280,7 +334,10 @@ export default function Classificacao() {
               <FeatureSlider
                 label=""
                 value={metrics[metric.key]}
-                onValueChange={(val) => handleMetricChange(metric.key, val)}
+                onValueChange={(val) => {
+                  handleMetricChange(metric.key, val);
+                  setTextValues((prev) => ({ ...prev, [metric.key]: String(Math.round(val * 100)) }));
+                }}
                 min={0}
                 max={1}
                 step={0.01}
@@ -289,6 +346,7 @@ export default function Classificacao() {
             </View>
           ))}
         </View>
+
         <TouchableOpacity
           style={[
             styles.classifyButton,
@@ -539,6 +597,19 @@ const styles = StyleSheet.create({
     fontSize: theme.fontSizes.sm,
     fontWeight: 'bold',
     marginTop: 2,
+  },
+  metricInput: {
+    width: 70,
+    marginLeft: 10,
+    backgroundColor: theme.colors.background,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    color: theme.colors.text,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    textAlign: 'center',
+    fontSize: theme.fontSizes.sm,
   },
   classifyButton: {
     flexDirection: 'row',
