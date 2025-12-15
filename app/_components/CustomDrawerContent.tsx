@@ -93,6 +93,14 @@ export const CustomDrawerContent = (props: any) => {
             <Feather name="search" size={24} color={theme.colors.text} />
             <Text style={styles.drawerLinkText}>Buscar</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.drawerLink}
+            onPress={() => navigateTo('/criar-meta')}
+          >
+            <Feather name="flag" size={24} color={theme.colors.text} />
+            <Text style={styles.drawerLinkText}>Metas</Text>
+          </TouchableOpacity>
         </View>
       </DrawerContentScrollView>
 
